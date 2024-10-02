@@ -1,0 +1,833 @@
+     1                                  [map all ./lst/mcon.map]
+     2                                  DEFAULT REL
+     3                                  BITS 64
+     4                                  
+     5                                  %include "./src/drvStruc.inc"
+     1                              <1> 
+     2                              <1> ;-------------------------------------------------------;
+     3                              <1> ; This include file contains miscellaneous SCP/DOS      ;
+     4                              <1> ; device driver related structures.                     ;
+     5                              <1> ;-------------------------------------------------------;
+     6                              <1> 
+     7                              <1> struc drvHdr  ;Device Driver Header for character and block devices
+     8                              <1> 
+     9 00000000 ????????????????    <1>     .nxtPtr dq ?  ;Pointer to the next driver header, -1 if at the end
+    10 00000008 ????                <1>     .attrib dw ?  ;Attribute Word
+    11 0000000A ????????????????    <1>     .strPtr dq ?  ;Strategy Entry Pointer
+    12 00000012 ????????????????    <1>     .intPtr dq ?  ;Interrupt Entry Pointer
+    13                              <1>     .drvUnt:        ;Number of units pointer
+    14 0000001A ????????????????    <1>     .drvNam db 8 dup (?)  ;Driver name (Char) or Number of units byte (Block)
+    15                              <1> 
+    16                              <1> endstruc
+    17                              <1> 
+    18                              <1> ;Command Code equates
+    19                              <1>     drvINIT         equ 0
+    20                              <1>     drvMEDCHK       equ 1
+    21                              <1>     drvBUILDBPB     equ 2
+    22                              <1>     drvIOCTLREAD    equ 3
+    23                              <1>     drvREAD         equ 4
+    24                              <1>     drvNONDESTREAD  equ 5
+    25                              <1>     drvINSTATUS     equ 6
+    26                              <1>     drvFLUSHINBUF   equ 7
+    27                              <1>     drvWRITE        equ 8
+    28                              <1>     drvWRITEVERIFY  equ 9
+    29                              <1>     drvOUTSTATUS    equ 10
+    30                              <1>     drvFLUSHOUTBUF  equ 11
+    31                              <1>     drvIOCTLWRITE   equ 12
+    32                              <1>     drvOPEN         equ 13
+    33                              <1>     drvCLOSE        equ 14
+    34                              <1>     drvREMMEDCHECK  equ 15
+    35                              <1>     drvOUTTILBUSY   equ 16  ;Not implemented
+    36                              <1>     drvIOCTL        equ 19
+    37                              <1>     drvStopCon      equ 20  ; NEW MULTITASKING 
+    38                              <1>     drvRestartCon   equ 21  ; NEW MULTITASKING
+    39                              <1>     drvGETDRVMAP    equ 23
+    40                              <1>     drvSETDRVMAP    equ 24
+    41                              <1>     
+    42                              <1> ;Driver Error equates 
+    43                              <1>     drvWPErr        equ 0   ;Write Protect Violation
+    44                              <1>     drvBadUnit      equ 1   ;Unknown unit
+    45                              <1>     drvNotReady     equ 2   ;Device not ready
+    46                              <1>     drvBadCmd       equ 3   ;Unknown command
+    47                              <1>     drvCRCErr       equ 4   ;CRC Error
+    48                              <1>     drvBadDrvReq    equ 5   ;Bad drive request structure length
+    49                              <1>     drvBadSeek      equ 6   ;Seek error
+    50                              <1>     drvBadMed       equ 7   ;Unknown media
+    51                              <1>     drvSecNotFnd    equ 8   ;Sector not found
+    52                              <1>     drvNoPaper      equ 9   ;Printer out of paper
+    53                              <1>     drvWriteFault   equ 10  ;Write Fault
+    54                              <1>     drvReadFault    equ 11  ;Read Fault
+    55                              <1>     drvGenFault     equ 12  ;General Fault
+    56                              <1>     drvBadDskChnge  equ 15  ;Invalid disk change
+    57                              <1> 
+    58                              <1> ;Driver status word status bit meanings
+    59                              <1>     drvErrStatus    equ 8000h  
+    60                              <1>     drvDonStatus    equ 0100h
+    61                              <1>     drvBsyStatus    equ 0200h
+    62                              <1> 
+    63                              <1> ;Driver Attribute Word bit meanings
+    64                              <1>     devDrvConIn    equ 1h  ;If set, device is CON input
+    65                              <1>     devDrvConOut   equ 2h  ;If set, device is CON output
+    66                              <1>     devDrvNulDev   equ 4h  ;If set, device is NULL device
+    67                              <1>     devDrvClockDev equ 8h  ;If set, device is CLOCK device
+    68                              <1>     devDrvFastOut  equ 10h ;If set, device supports Int 29h
+    69                              <1>     devDrvMulti    equ 20h ;Reserved, If set, device is multitasking. 
+    70                              <1>     devDrvIOCTL    equ 40h ;If set, IOCTL and GET/SET suported
+    71                              <1>     devDrvHdlCTL   equ 800h ;If set, Open, Close and Rem media supported
+    72                              <1>     devDrvIOCTLRW  equ 4000h ;If set, IOCTL Read/Write supported
+    73                              <1>     devDrvChar     equ 8000h ;If set, Char device
+    74                              <1> ;Bit 0 1=console input
+    75                              <1> ;    1 1=console output (character devices)
+    76                              <1> ;    2 1=NUL device
+    77                              <1> ;    3 1=CLOCK device
+    78                              <1> ;    4 1=Int 29 output (CON)
+    79                              <1> ;    5 1=Multitasking driver. Bit ignored by DOS. Used by multitaskers.
+    80                              <1> ; If bit set, no crit2 lock placed on thread when making drv request.
+    81                              <1> ;    6 1=extended functions supported (13,17,18) (3.2+)
+    82                              <1> ;    7 1=Generic IOCTL function supported (19)
+    83                              <1> ;   11 1=open/close/removable media supported (3.0+)
+    84                              <1> ;   13 1=output until busy supported (character devices) (3.0+)
+    85                              <1> ;      1=media descriptor in FAT required (block devices)
+    86                              <1> ;   14 1=IOCTL R/W supported
+    87                              <1> ;   15 0=block device
+    88                              <1> ;      1=character device
+    89                              <1> 
+    90                              <1> ;Driver structures
+    91                              <1> 
+    92                              <1> %macro drvReqHdrM 0 ;Driver Request Header Macro
+    93                              <1> 
+    94                              <1>     .hdrlen db ?  ;Length of the request header
+    95                              <1>     .unitnm db ?  ;Unit number, meaningless for character devs
+    96                              <1>     .cmdcde db ?  ;Command code
+    97                              <1>     .status dw ?  ;Status word
+    98                              <1>     .devptr dq ?  ;Device queue pointer field, reserved for future use
+    99                              <1> 
+   100                              <1> %endmacro
+   101                              <1> 
+   102                              <1> struc drvReqHdr
+   103                              <1>     drvReqHdrM
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   104                              <1> endstruc
+   105                              <1> 
+   106                              <1> struc initReqPkt  ;Init Request Packet
+   107                              <1> 
+   108                              <1>     drvReqHdrM   ;Common Driver Header Macro
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   109 0000000D ??                  <1>     .numunt db ?  ;Number of logical units (Block only, 0 for char)
+   110 0000000E ????????????????    <1>     .endptr dq ?  ;Pointer to first free byte after driver
+   111 00000016 ????????????????    <1>     .optptr dq ?  ;Ptr to BPB array (blkdev) or cmdline args
+   112 0000001E ??                  <1>     .drvnum db ?  ;First Drive number
+   113                              <1> 
+   114                              <1> endstruc
+   115                              <1> 
+   116                              <1> struc mediaCheckReqPkt ;Media Check Request Packet
+   117                              <1> 
+   118                              <1>     drvReqHdrM    ;Common Driver Header Macro
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   119 0000000D ??                  <1>     .medesc db ?  ;DOS media descriptor
+   120 0000000E ??                  <1>     .medret db ?  ;Return byte (Has media been changed?)
+   121 0000000F ????????????????    <1>     .desptr dq ?  ;Pointer to a valid volume id field
+   122                              <1> 
+   123                              <1> endstruc
+   124                              <1> 
+   125                              <1> struc bpbBuildReqPkt  ;Build BPB Request Packet
+   126                              <1> 
+   127                              <1>     drvReqHdrM    ;Common Driver Header Macro
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   128 0000000D ??                  <1>     .medesc db ?  ;DOS media descriptor
+   129 0000000E ????????????????    <1>     .bufptr dq ?  ;Transfer buffer
+   130 00000016 ????????????????    <1>     .bpbptr dq ?  ;Pointer to the BPB
+   131                              <1> 
+   132                              <1> endstruc
+   133                              <1> 
+   134                              <1> struc ioReqPkt   ;IO Request Packet
+   135                              <1> 
+   136                              <1>     drvReqHdrM    ;Common Driver Header Macro
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   137 0000000D ??                  <1>     .medesc db ?  ;DOS media descriptor
+   138 0000000E ????????????????    <1>     .bufptr dq ?  ;Transfer buffer
+   139 00000016 ????????            <1>     .tfrlen dd ?  ;Number of Sectors/bytes to transfer
+   140 0000001A ????????????????    <1>     .strtsc dq ?  ;Starting sector for transfer
+   141 00000022 ????????????????    <1>     .desptr dq ?  ;Pointer to a valid volume id field if error
+   142                              <1> 
+   143                              <1> endstruc
+   144                              <1> 
+   145                              <1> struc ndInNoWaitPkt    ;Nondestructive Input No Wait Request Packet
+   146                              <1>     
+   147                              <1>     drvReqHdrM    ;Common Driver Header Macro
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   148 0000000D ??                  <1>     .retbyt db ?  ;Byte read non destructively
+   149                              <1> 
+   150                              <1> endstruc
+   151                              <1> 
+   152                              <1> struc statusReqPkt   ;Status Request Packet
+   153                              <1> 
+   154                              <1>     drvReqHdrM    ;Common Driver Header Macro
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   155                              <1> 
+   156                              <1> endstruc
+   157                              <1> 
+   158                              <1> struc flushReqPkt ;Flush Request Packet, terminate all pending requests
+   159                              <1> 
+   160                              <1>     drvReqHdrM    ;Common Driver Header Macro
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   161                              <1>      
+   162                              <1> endstruc
+   163                              <1> 
+   164                              <1> struc openReqPkt ;Open Device Request Packet
+   165                              <1> 
+   166                              <1>     drvReqHdrM    ;Common Driver Header Macro
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   167                              <1>      
+   168                              <1> endstruc
+   169                              <1> 
+   170                              <1> struc closeReqPkt ;Close Device Request Packet
+   171                              <1> 
+   172                              <1>     drvReqHdrM    ;Common Driver Header Macro
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   173                              <1>      
+   174                              <1> endstruc
+   175                              <1> 
+   176                              <1> struc remMediaReqPkt ;Removeable Media Request Packet
+   177                              <1> 
+   178                              <1>     drvReqHdrM    ;Common Driver Header Macro
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   179                              <1>      
+   180                              <1> endstruc
+   181                              <1> 
+   182                              <1> struc ioctlReqPkt    ;Generic IOCTL Request Packet
+   183                              <1> 
+   184                              <1>     drvReqHdrM    ;Common Driver Header Macro  
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   185 0000000D ??                  <1>     .majfun db ?  ;Major function number
+   186 0000000E ??                  <1>     .minfun db ?  ;Minor function number
+   187 0000000F ????????????????    <1>     .rsival dq ?  ;Contents of RSI
+   188 00000017 ????????????????    <1>     .rdival dq ?  ;Contents of RDI
+   189 0000001F ????????????????    <1>     .ctlptr dq ?  ;Pointer to Generic IOCTL Request Packet
+   190                              <1> 
+   191                              <1> endstruc
+   192                              <1> 
+   193                              <1> struc getDevReqPkt ;Get Logical Device Request Packet
+   194                              <1>     
+   195                              <1>     drvReqHdrM    ;Common Driver Header Macro
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   196                              <1> 
+   197                              <1> endstruc
+   198                              <1> 
+   199                              <1> struc setDevReqPkt ;Set Logical Device Request Packet
+   200                              <1>     
+   201                              <1>     drvReqHdrM    ;Common Driver Header Macro
+    93                              <2> 
+    94 00000000 ??                  <2>  .hdrlen db ?
+    95 00000001 ??                  <2>  .unitnm db ?
+    96 00000002 ??                  <2>  .cmdcde db ?
+    97 00000003 ????                <2>  .status dw ?
+    98 00000005 ????????????????    <2>  .devptr dq ?
+    99                              <2> 
+   202                              <1> 
+   203                              <1> endstruc
+   204                              <1> 
+   205                              <1> 
+   206                              <1> struc genioctlGetParamsTable
+   207 00000000 ??                  <1>     .size           db ?
+   208 00000001 ??????????????      <1>     .res            db 7 dup (?)
+   209 00000008 ????????????????    <1>     .sectorSize     db 8 dup (?)  ;Only the lower dword is valid here
+   210 00000010 ????????????????    <1>     .numSectors     db 8 dup (?)
+   211                              <1> endstruc
+   212                              <1> 
+   213                              <1> ;THE WRITE STRUCT MUST BE A STRICT SUPERSET OF THE FORMAT STRUCT ALWAYS
+   214                              <1> struc genioctlLBAformat
+   215 00000000 ??                  <1>     .size           db ?
+   216 00000001 ??                  <1>     .numSectors     db ?  ;Number of sectors to format
+   217 00000002 ????????????        <1>     .res            db 6 dup (?)
+   218 00000008 ????????????????    <1>     .startSector    db 8 dup (?)  ;Sector to start format at
+   219                              <1> endstruc
+   220                              <1> 
+   221                              <1> struc genioctlLBAwrite
+   222 00000000 ??                  <1>     .size           db ?
+   223 00000001 ??                  <1>     .numSectors     db ?  ;Number of sectors to write
+   224 00000002 ????????????        <1>     .res            db 6 dup (?)
+   225 00000008 ????????????????    <1>     .startSector    db 8 dup (?)  ;Sector to start write at
+   226 00000010 ????????????????    <1>     .xferBuffer     db 8 dup (?)  ;Transfer buffer for data
+   227                              <1> endstruc
+     6                                  %include "./src/mcon.inc"
+     1                              <1> ;MCON screen capabilities
+     2                              <1> 
+     3                              <1> struc mScrCap
+     4 00000000 ????                <1>     .wVer       dw ?    ;Upper byte, Major num (1). Lower byte, minor num (0)
+     5 00000002 ????                <1>     .wLen       dw ?    ;Length of structure (15 bytes)
+     6 00000004 ????                <1>     .wMagic     dw ?    ;Magic key combo (scancode/ASCII)
+     7 00000006 ??                  <1>     .bScrNum    db ?    ;Number of screens supported by driver
+     8 00000007 ????????????????    <1>     .qHlpPtr    dq ?    ;Pointer to the mCon help routine
+     9                              <1> endstruc
+    10                              <1> 
+    11                              <1> maxScr  equ 07h ;Screens 0 - 7 (so 8 screens)
+     7                                  %include "./src/dosMacro.mac"
+     1                              <1> 
+     2                              <1> ;-------------------------------------------------------------------------------
+     3                              <1> ;Generic Macros file
+     4                              <1> ;The following instruction extensions allow to conditionally return
+     5                              <1> ;The idea was borrowed from the DOS Source Code
+     6                              <1> ;
+     7                              <1> ;-------------------------------------------------------------------------------
+     8                              <1> 
+     9                              <1> ;-------------------------------------------------------------------------------
+    10                              <1> ;These macros are live and must not be touched
+    11                              <1> ;-------------------------------------------------------------------------------
+    12                              <1> %macro return 0
+    13                              <1>     ret
+    14                              <1> %endmacro
+    15                              <1> 
+    16                              <1> %macro cret 1
+    17                              <1>     j%-1 short %%a
+    18                              <1>     return
+    19                              <1> %%a:
+    20                              <1> %endmacro
+    21                              <1> 
+    22                              <1> %macro retz 0
+    23                              <1> cret z
+    24                              <1> %endmacro
+    25                              <1> 
+    26                              <1> %macro retnz 0
+    27                              <1> cret nz
+    28                              <1> %endmacro
+    29                              <1> 
+    30                              <1> %macro rete 0
+    31                              <1> cret e
+    32                              <1> %endmacro
+    33                              <1> 
+    34                              <1> %macro retne 0
+    35                              <1> cret ne
+    36                              <1> %endmacro
+    37                              <1> 
+    38                              <1> %macro retc 0
+    39                              <1> cret c
+    40                              <1> %endmacro
+    41                              <1> 
+    42                              <1> %macro retnc 0
+    43                              <1> cret nc
+    44                              <1> %endmacro
+    45                              <1> 
+    46                              <1> %macro retb 0
+    47                              <1> cret b
+    48                              <1> %endmacro
+    49                              <1> 
+    50                              <1> %macro retnb 0
+    51                              <1> cret nb
+    52                              <1> %endmacro
+    53                              <1> 
+    54                              <1> %macro reta 0
+    55                              <1> cret a
+    56                              <1> %endmacro
+    57                              <1> 
+    58                              <1> %macro retna 0
+    59                              <1> cret na
+    60                              <1> %endmacro
+    61                              <1> 
+    62                              <1> %macro breakpoint 0
+    63                              <1> xchg bx, bx
+    64                              <1> %endmacro
+     8                                  
+     9                                  Segment cseg start=0 vstart=0
+    10                                  %include "./src/mcdata.asm" ;Cannot put this in a separate segment due to reloc issues
+     1                              <1> 
+     2                              <1> conHdr:
+     3 00000000 FFFFFFFFFFFFFFFF    <1>     dq -1
+     4 00000008 7380                <1>     dw devDrvChar | devDrvIOCTL | devDrvMulti | devDrvFastOut | devDrvConOut | devDrvConIn
+     5 0000000A [5E00000000000000]  <1>     dq strategy
+     6 00000012 [9D00000000000000]  <1>     dq noOp    ;We don't use the interrupt endpoint.
+     7 0000001A 434F4E2020202020    <1>     db "CON     "
+     8 00000022 00                  <1> conBuf  db 0    ;Single byte input buffer
+     9 00000023 [9D00000000000000]  <1> hlpPtr  dq noOp ;Ptr to the DOS session help interface. Default to NOP
+    10                              <1> 
+    11                              <1> funcTbl:
+    12 0000002B 7002                <1>     dw init - funcTbl       ;Init function
+    13 0000002D 7200                <1>     dw noOp - funcTbl       ;Media Check
+    14 0000002F 7200                <1>     dw noOp - funcTbl       ;Build BPB
+    15 00000031 7300                <1>     dw unkExit - funcTbl    ;IOCTL Input
+    16 00000033 8000                <1>     dw read - funcTbl       ;Read
+    17 00000035 C400                <1>     dw ndRead - funcTbl     ;Non-destructive read
+    18 00000037 F000                <1>     dw inStatus - funcTbl   ;Input Status
+    19 00000039 FD00                <1>     dw flushInBuf - funcTbl ;Input flush
+    20 0000003B 1D01                <1>     dw write - funcTbl      ;Write
+    21 0000003D 1D01                <1>     dw write - funcTbl      ;Write with verify
+    22 0000003F 7200                <1>     dw noOp - funcTbl       ;Output Status
+    23 00000041 7200                <1>     dw noOp - funcTbl       ;Output Flush
+    24 00000043 7200                <1>     dw noOp - funcTbl       ;IOCTL Output
+    25 00000045 7200                <1>     dw noOp - funcTbl       ;Device Open
+    26 00000047 7200                <1>     dw noOp - funcTbl       ;Device Close
+    27 00000049 7200                <1>     dw noOp - funcTbl       ;Removable Media
+    28 0000004B 7300                <1>     dw unkExit - funcTbl    ;Reserved function
+    29 0000004D 7300                <1>     dw unkExit - funcTbl    ;Reserved function
+    30 0000004F 7300                <1>     dw unkExit - funcTbl    ;Reserved function
+    31                              <1> ; New functions
+    32 00000051 4101                <1>     dw genIOCTL - funcTbl   ;Generic IOCTL
+    33                              <1> 
+    34                              <1> funcTblE equ ($ - funcTbl)/2    ;Compute number of entries
+    35                              <1> 
+    36 00000053 0000000000000000    <1> oldKbdHdlr  dq 0    ;Ptr to the BIOS IRQ1 handler
+    37 0000005B FFFF                <1> magicKey    dw -1   ;Scancode/ASCII pair to search for. -1 means no search.
+    38 0000005D 00                  <1> inHdlr      db 0    ;Set if we are in the getchar portion of IRQ1 handler.
+    11                                  %include "./src/mccode.asm"
+     1                              <1> ;This driver is designed to work in the MDOS environment. 
+     2                              <1> 
+     3                              <1> strategy:
+     4                              <1> ;DOS calls this function with rbx=Ptr to request header.
+     5                              <1> ;Rather than saving the 
+     6 0000005E 50                  <1>     push rax
+     7 0000005F 53                  <1>     push rbx
+     8 00000060 51                  <1>     push rcx
+     9 00000061 52                  <1>     push rdx
+    10 00000062 56                  <1>     push rsi
+    11 00000063 57                  <1>     push rdi
+    12 00000064 55                  <1>     push rbp
+    13 00000065 4150                <1>     push r8 ;Use r8 as the static pointer to the request packet!
+    14 00000067 4989D8              <1>     mov r8, rbx 
+    15 0000006A 6641C740030000      <1>     mov word [r8 + drvReqHdr.status], 0    ;Ensure status clear (should be!)
+    16 00000071 410FB64002          <1>     movzx eax, byte [r8 + drvReqHdr.cmdcde]
+    17 00000076 3D14000000          <1>     cmp eax, funcTblE   
+    18 0000007B 7321                <1>     jae short unkExit       ;If cmdcde is past the end of the table, error!
+    19 0000007D 488D1DA7FFFFFF      <1>     lea rbx, funcTbl        ;Else get pointer to function
+    20 00000084 0FB71443            <1>     movzx edx, word [rbx + 2*rax]   
+    21 00000088 4801D3              <1>     add rbx, rdx
+    22 0000008B FFD3                <1>     call rbx        
+    23                              <1> exit:
+    24 0000008D 66418148030001      <1>     or word [r8 + drvReqHdr.status], drvDonStatus    ;Set done bit!
+    25                              <1> .err:
+    26 00000094 4158                <1>     pop r8
+    27 00000096 5D                  <1>     pop rbp
+    28 00000097 5F                  <1>     pop rdi
+    29 00000098 5E                  <1>     pop rsi
+    30 00000099 5A                  <1>     pop rdx
+    31 0000009A 59                  <1>     pop rcx
+    32 0000009B 5B                  <1>     pop rbx
+    33 0000009C 58                  <1>     pop rax
+    34                              <1> noOp:
+    35                              <1>     return
+    13 0000009D C3                  <2>  ret
+    36                              <1> 
+    37                              <1> unkExit:
+    38 0000009E B003                <1>     mov al, drvBadCmd
+    39                              <1> errorExit:
+    40                              <1> ;Jump to with al=Standard Error code
+    41 000000A0 66B80080            <1>     mov ax, drvErrStatus    ;Set error bit, and NOT done bit!
+    42 000000A4 6641894003          <1>     mov word [r8 + drvReqHdr.status], ax
+    43 000000A9 EBE9                <1>     jmp short exit.err
+    44                              <1> 
+    45                              <1> read:    ;Read Chars
+    46 000000AB B005                <1>     mov al, 05h ;Bad request structure length?
+    47 000000AD 4180382A            <1>     cmp byte [r8 + drvReqHdr.hdrlen], ioReqPkt_size
+    48 000000B1 75ED                <1>     jne errorExit
+    49                              <1> 
+    50 000000B3 498B780E            <1>     mov rdi, qword [r8 + ioReqPkt.bufptr]  ;Point rdi to caller buffer
+    51 000000B7 31C9                <1>     xor ecx, ecx    ;Zero the char counter
+    52                              <1> .cre1:
+    53 000000B9 413B4816            <1>     cmp ecx, dword [r8 + ioReqPkt.tfrlen]
+    54 000000BD 741C                <1>     je .cre2
+    55 000000BF 803D5CFFFFFF00      <1>     cmp byte [conBuf], 0   ;Does the buffer contain a zero?
+    56 000000C6 7518                <1>     jnz .cre3   ;No, get the buffer value
+    57 000000C8 31C0                <1>     xor eax, eax
+    58 000000CA CD36                <1>     int 36h
+    59                              <1> .cre11:
+    60 000000CC AA                  <1>     stosb
+    61 000000CD 84C0                <1>     test al, al ;Was the ascii code stored 0?
+    62 000000CF 7506                <1>     jnz .cre12  ;No, skip storing scancode in buffer
+    63 000000D1 88254BFFFFFF        <1>     mov byte [conBuf], ah  ;Save scancode
+    64                              <1> .cre12:
+    65 000000D7 FFC1                <1>     inc ecx ;Inc chars stored in buffer
+    66 000000D9 EBDE                <1>     jmp short .cre1
+    67                              <1> .cre2:
+    68 000000DB 41894816            <1>     mov dword [r8 + ioReqPkt.tfrlen], ecx  ;Move num of transferred chars
+    69                              <1>     return
+    13 000000DF C3                  <2>  ret
+    70                              <1> .cre3:
+    71 000000E0 8A053CFFFFFF        <1>     mov al, byte [conBuf]  ;Get the buffer value
+    72 000000E6 C60535FFFFFF00      <1>     mov byte [conBuf], 0   ;Reset the buffer value
+    73 000000ED EBDD                <1>     jmp short .cre11
+    74                              <1> 
+    75                              <1> ndRead:  ;Non destructive read chars
+    76 000000EF B005                <1>     mov al, 05h ;Bad request structure length?
+    77 000000F1 4180380E            <1>     cmp byte [r8 + drvReqHdr.hdrlen], ndInNoWaitPkt_size
+    78 000000F5 75A9                <1>     jne errorExit
+    79 000000F7 803D24FFFFFF00      <1>     cmp byte [conBuf], 0
+    80 000000FE 7513                <1>     jnz .cnr2
+    81 00000100 B401                <1>     mov ah, 01h     ;Get key if exists
+    82 00000102 CD36                <1>     int 36h
+    83 00000104 7405                <1>     jz .cnr1        ;If zero clear => no key, go forwards
+    84                              <1>     ;Keystroke available
+    85                              <1> .cnr0:
+    86 00000106 4188400D            <1>     mov byte [r8 + ndInNoWaitPkt.retbyt], al   ;Move char in al
+    87                              <1>     return
+    13 0000010A C3                  <2>  ret
+    88                              <1> .cnr1: ;No keystroke available
+    89 0000010B 6641C740030002      <1>     mov word [r8 + ndInNoWaitPkt.status], drvBsyStatus   ;Set busy bit
+    90                              <1>     return
+    13 00000112 C3                  <2>  ret
+    91                              <1> .cnr2:
+    92 00000113 8A0509FFFFFF        <1>     mov al, byte [conBuf]  ;Copy scancode but dont reset it
+    93 00000119 EBEB                <1>     jmp short .cnr0   ;Keystroke is available clearly
+    94                              <1> 
+    95                              <1> inStatus:         ;Get Input Status
+    96 0000011B B005                <1>     mov al, 05h ;Bad request structure length?
+    97 0000011D 4180380D            <1>     cmp byte [r8 + drvReqHdr.hdrlen], statusReqPkt_size
+    98 00000121 0F8579FFFFFF        <1>     jne errorExit
+    99                              <1>     return ;Exit, device ready
+    13 00000127 C3                  <2>  ret
+   100                              <1> 
+   101                              <1> flushInBuf:   ;Flush Input Buffers
+   102 00000128 B005                <1>     mov al, 05h ;Bad request structure length?
+   103 0000012A 4180380D            <1>     cmp byte [r8 + drvReqHdr.hdrlen], statusReqPkt_size
+   104 0000012E 0F856CFFFFFF        <1>     jne errorExit
+   105 00000134 C605E7FEFFFF00      <1>     mov byte [conBuf], 0   ;Clear buffer
+   106                              <1> .cfib0:
+   107 0000013B B401                <1>     mov ah, 01      ;Get buffer status
+   108 0000013D CD36                <1>     int 36h
+   109                              <1>     retz            ;If zero clear => no more keys to read
+    23                              <2> cret z
+    17 0000013F 7501                <3>  j%-1 short %%a
+    18                              <3>  return
+    13 00000141 C3                  <4>  ret
+    19                              <3> %%a:
+   110 00000142 30E4                <1>     xor ah, ah
+   111 00000144 CD36                <1>     int 36h ;Read key to flush from buffer
+   112 00000146 EBF3                <1>     jmp short .cfib0
+   113                              <1> 
+   114                              <1> write:   ;Write Chars
+   115 00000148 B005                <1>     mov al, 05h ;Bad request structure length?
+   116 0000014A 4180382A            <1>     cmp byte [r8 + drvReqHdr.hdrlen], ioReqPkt_size
+   117 0000014E 0F854CFFFFFF        <1>     jne errorExit
+   118                              <1> 
+   119 00000154 498B700E            <1>     mov rsi, qword [r8 + ioReqPkt.bufptr] ;Point rsi to caller buffer 
+   120 00000158 31C9                <1>     xor ecx, ecx    ;Zero the char counter
+   121                              <1> .cw1: 
+   122 0000015A 413B4816            <1>     cmp ecx, dword [r8 + ioReqPkt.tfrlen]
+   123 0000015E 7407                <1>     je .cw2
+   124 00000160 AC                  <1>     lodsb   ;Get char into al, and inc rsi
+   125 00000161 CD29                <1>     int 29h ;Fast print char
+   126 00000163 FFC1                <1>     inc ecx
+   127 00000165 EBF3                <1>     jmp short .cw1 ;keep printing until all chars printed
+   128                              <1> .cw2:
+   129 00000167 41894816            <1>     mov dword [r8 + ioReqPkt.tfrlen], ecx  ;Move num of transferred chars
+   130                              <1>     return
+    13 0000016B C3                  <2>  ret
+   131                              <1> ; -------------------- NEW FUNCTIONS -------------------- 
+   132                              <1> genIOCTL:
+   133                              <1> ;Only one function, MScrCap.
+   134                              <1> ;Do all checks to ensure not an accidental call.
+   135 0000016C 498B700F            <1>     mov rsi, qword [r8 + ioctlReqPkt.rsival]
+   136 00000170 498B7817            <1>     mov rdi, qword [r8 + ioctlReqPkt.rdival]
+   137 00000174 498B501F            <1>     mov rdx, qword [r8 + ioctlReqPkt.ctlptr]
+   138 00000178 6681F91003          <1>     cmp cx, 0310h   ;Get MScrCap?
+   139 0000017D 753B                <1>     jne .exitBad
+   140 0000017F 4885F6              <1>     test rsi, rsi
+   141 00000182 7536                <1>     jnz .exitBad
+   142 00000184 4885FF              <1>     test rdi, rdi
+   143 00000187 7531                <1>     jnz .exitBad
+   144 00000189 66813A0001          <1>     cmp word [rdx + mScrCap.wVer], 0100h
+   145 0000018E 752A                <1>     jne .exitBad
+   146 00000190 66817A020F00        <1>     cmp word [rdx + mScrCap.wLen], mScrCap_size
+   147 00000196 7522                <1>     jne .exitBad
+   148                              <1>     ;Here we have verified we are ok! Proceed.
+   149                              <1>     ;This IOCTL is equivalent to in MTDOS the CON reporting caps during driver init.
+   150 00000198 0FB74204            <1>     movzx eax, word [rdx + mScrCap.wMagic]
+   151 0000019C 668905B8FEFFFF      <1>     mov word [magicKey], ax
+   152 000001A3 C6420608            <1>     mov byte [rdx + mScrCap.bScrNum], (maxScr + 1)
+   153 000001A7 488D0515000000      <1>     lea rax, mConHlp
+   154 000001AE 48874207            <1>     xchg qword [rdx + mScrCap.qHlpPtr], rax  ;Swap pointers
+   155 000001B2 4889056AFEFFFF      <1>     mov qword [hlpPtr], rax   ;Store this as the help pointer
+   156                              <1>     return
+    13 000001B9 C3                  <2>  ret
+   157                              <1> .exitBad:
+   158 000001BA 6641C740030380      <1>     mov word [r8 + drvReqHdr.status], drvErrStatus | drvBadCmd
+   159 000001C1 F9                  <1>     stc
+   160                              <1>     return
+    13 000001C2 C3                  <2>  ret
+   161                              <1> ;-------------------------------------------
+   162                              <1> ;       mConHlp dispatch and routines
+   163                              <1> ;-------------------------------------------
+   164                              <1> 
+   165                              <1> mConHlp:
+   166                              <1> ;AL = 0: Get current screen number
+   167                              <1> ;AL = 1: Set new screen number
+   168                              <1> ;AL = 2: Reset the screen (CLS)
+   169                              <1> ;Al = 3: Cancel help pointer support
+   170 000001C3 85C0                <1>     test eax, eax
+   171 000001C5 741D                <1>     jz getScreen
+   172 000001C7 FFC8                <1>     dec eax
+   173 000001C9 7426                <1>     jz swapScreen
+   174 000001CB FFC8                <1>     dec eax
+   175 000001CD 743B                <1>     jz resetScreen
+   176 000001CF FFC8                <1>     dec eax
+   177 000001D1 7402                <1>     jz delHlp
+   178 000001D3 F9                  <1>     stc
+   179                              <1>     return
+    13 000001D4 C3                  <2>  ret
+   180                              <1> delHlp:
+   181                              <1> ;If the Session Manager has to de-install itself, call this 
+   182                              <1> ; to indicate that the hlpPtr is no longer valid!
+   183 000001D5 488D05C1FEFFFF      <1>     lea rax, noOp
+   184 000001DC 48890540FEFFFF      <1>     mov qword [hlpPtr], rax
+   185                              <1>     return
+    13 000001E3 C3                  <2>  ret
+   186                              <1> getScreen:
+   187 000001E4 53                  <1>     push rbx
+   188 000001E5 B8000F0000          <1>     mov eax, 0F00h
+   189 000001EA CD30                <1>     int 30h
+   190 000001EC 0FB6C7              <1>     movzx eax, bh
+   191 000001EF 5B                  <1>     pop rbx
+   192                              <1>     return
+    13 000001F0 C3                  <2>  ret
+   193                              <1> swapScreen:
+   194                              <1> ;If the screen number is above the max screen number we return error!
+   195                              <1> ;This routine is signalled by the task swapping routine.
+   196 000001F1 0FB6C3              <1>     movzx eax, bl ;Get the screen number
+   197 000001F4 3D07000000          <1>     cmp eax, maxScr
+   198 000001F9 7708                <1>     ja .err
+   199 000001FB 0D00050000          <1>     or eax, 0500h   
+   200 00000200 CD30                <1>     int 30h         ;Swap active page on the VGA!
+   201                              <1>     return
+    13 00000202 C3                  <2>  ret
+   202                              <1> .err:
+   203 00000203 B801000000          <1>     mov eax, drvBadUnit
+   204 00000208 F9                  <1>     stc
+   205                              <1>     return
+    13 00000209 C3                  <2>  ret
+   206                              <1> resetScreen:
+   207                              <1> ;Resets the currently active screen!
+   208                              <1>     ;mov ah, 0Bh  ; Set overscan to black (when Graphics becomes supported)
+   209                              <1>     ;xor ebx, ebx
+   210                              <1>     ;int 30h
+   211 0000020A B40F                <1>     mov ah, 0Fh ;Get screen mode
+   212 0000020C CD30                <1>     int 30h
+   213 0000020E 53                  <1>     push rbx    ;Save the screen number on stack
+   214 0000020F 0FB6D4              <1>     movzx edx, ah   ;Get number of columns in dl
+   215 00000212 FECA                <1>     dec dl
+   216 00000214 B619                <1>     mov dh, 25  ;Number of rows is standard
+   217 00000216 31C0                <1>     xor eax, eax
+   218 00000218 89C1                <1>     mov ecx, eax
+   219 0000021A B707                <1>     mov bh, 7   ;Screen attributes
+   220 0000021C B406                <1>     mov ah, 6   ;Scroll
+   221 0000021E CD30                <1>     int 30h
+   222 00000220 31D2                <1>     xor edx, edx    ;Set cursor coordinates to top left of screen
+   223 00000222 5B                  <1>     pop rbx     ;Get back the screen number
+   224 00000223 B402                <1>     mov ah, 2
+   225 00000225 CD30                <1>     int 30h
+   226                              <1>     return
+    13 00000227 C3                  <2>  ret
+   227                              <1>     
+   228                              <1> ;------------- Driver built-in Interrupt Routines -------------
+   229                              <1> fastOutput:         ;This CON driver supports Int 29h
+   230                              <1> ;Called with char to transfer in al
+   231 00000228 50                  <1>     push rax
+   232 00000229 B40E                <1>     mov ah, 0Eh
+   233 0000022B CD30                <1>     int 30h
+   234 0000022D 58                  <1>     pop rax
+   235 0000022E 48CF                <1>     iretq
+   236                              <1> ctrlBreak:
+   237                              <1> ;CON Int 3Bh handler to detect CTRL+BREAK
+   238 00000230 C605EBFDFFFF03      <1>     mov byte [conBuf], 03h    ;Place a ^C in buffer
+   239 00000237 48CF                <1>     iretq
+   240                              <1> 
+   241                              <1> newKeybIntr:        ;New Keyboard Interrupt Hdlr
+   242 00000239 50                  <1>     push rax        ;Save RAX as a trashed reg
+   243 0000023A 52                  <1>     push rdx
+   244                              <1> ;Simulate an IRQ entry to old kbdHldr
+   245 0000023B 4889E2              <1>     mov rdx, rsp
+   246 0000023E 31C0                <1>     xor eax, eax
+   247 00000240 668CD0              <1>     mov ax, ss
+   248 00000243 50                  <1>     push rax
+   249 00000244 52                  <1>     push rdx
+   250 00000245 9C                  <1>     pushfq
+   251 00000246 668CC8              <1>     mov ax, cs
+   252 00000249 50                  <1>     push rax
+   253 0000024A FF1503FEFFFF        <1>     call qword [oldKbdHdlr]
+   254                              <1> 
+   255 00000250 F60506FEFFFFFF      <1>     test byte [inHdlr], -1      ;If set, we are reentering this. Exit!!
+   256 00000257 753E                <1>     jnz .exit
+   257 00000259 66813DF9FDFFFFFFFF  <1>     cmp word [magicKey], -1     ;If no magic key to check, exit!
+   258 00000262 7433                <1>     je .exit
+   259 00000264 B800010000          <1>     mov eax, 0100h  ;Now we NDlook to see what was placed in.
+   260 00000269 CD36                <1>     int 36h         
+   261 0000026B 742A                <1>     jz .exit        ;If ZF=ZE, no keystroke available (should never happen)
+   262 0000026D 663B05E7FDFFFF      <1>     cmp ax, word [magicKey] ;Did we receive the magic key
+   263 00000274 7521                <1>     jne .exit
+   264                              <1> ;Else, we now pull the magic key and signal SM!
+   265 00000276 C605E0FDFFFFFF      <1>     mov byte [inHdlr], -1   ;Set reentrancy flag!
+   266                              <1> ;Pull the magic char out of the buffer!
+   267 0000027D 31C0                <1>     xor eax, eax
+   268 0000027F CD36                <1>     int 36h
+   269                              <1> ;Now pass this information to SM
+   270 00000281 89C2                <1>     mov edx, eax    ;Pass sc/ASCII pair in edx
+   271 00000283 B801000000          <1>     mov eax, 1      ;Call function 1
+   272 00000288 FA                  <1>     cli ;Pause interrupts
+   273 00000289 C605CDFDFFFF00      <1>     mov byte [inHdlr], 0    ;Clear reentrancy flag!
+   274 00000290 FF158DFDFFFF        <1>     call qword [hlpPtr]     ;Call SM
+   275 00000296 FB                  <1>     sti
+   276                              <1> .exit:
+   277 00000297 5A                  <1>     pop rdx
+   278 00000298 58                  <1>     pop rax
+   279 00000299 48CF                <1>     iretq
+   280                              <1> 
+   281                              <1> 
+   282                              <1> ;------------------ EJECT POINT ------------------
+   283                              <1> 
+   284                              <1> init:
+   285                              <1> ;Start by hooking int 3Bh, int 29h and 0F1h (IRQ1) as part of the CON driver
+   286                              <1> ;DO FASTOUT
+   287 0000029B 488D1586FFFFFF      <1>     lea rdx, fastOutput
+   288 000002A2 B829000000          <1>     mov eax, 29h
+   289 000002A7 E863000000          <1>     call installInterrupt
+   290                              <1> ;DO CTRL+BREAK
+   291 000002AC 488D157DFFFFFF      <1>     lea rdx, ctrlBreak
+   292 000002B3 B83B000000          <1>     mov eax, 3Bh
+   293 000002B8 E852000000          <1>     call installInterrupt
+   294                              <1> ;DO IRQ1
+   295 000002BD B8F1000000          <1>     mov eax, 0F1h   ;Get IRQ1 handler in rbx
+   296 000002C2 E872000000          <1>     call getIntHdlr
+   297 000002C7 48891D85FDFFFF      <1>     mov qword [oldKbdHdlr], rbx
+   298 000002CE 488D1564FFFFFF      <1>     lea rdx, newKeybIntr
+   299 000002D5 B8F1000000          <1>     mov eax, 0F1h
+   300 000002DA E830000000          <1>     call installInterrupt
+   301                              <1> 
+   302                              <1> .ci0:
+   303 000002DF B401                <1>     mov ah, 01      ;Get buffer status
+   304 000002E1 CD36                <1>     int 36h
+   305 000002E3 7406                <1>     jz .ci1      ;If zero clear => no more keys to read
+   306 000002E5 30E4                <1>     xor ah, ah
+   307 000002E7 CD36                <1>     int 36h ;Read key to flush from buffer
+   308 000002E9 EBF4                <1>     jmp short .ci0
+   309                              <1> .ci1:
+   310 000002EB B800050000          <1>     mov eax, 0500h  ;Set page zero as the default page
+   311 000002F0 CD30                <1>     int 30h
+   312 000002F2 B402                <1>     mov ah, 02h
+   313 000002F4 31D2                <1>     xor edx, edx    ;Set screen cursor to top right corner
+   314 000002F6 88D7                <1>     mov bh, dl      ;Set cursor for page 0
+   315 000002F8 CD30                <1>     int 30h
+   316 000002FA B707                <1>     mov bh, 07h     ;Grey/Black attribs
+   317 000002FC B800060000          <1>     mov eax, 0600h  ;Clear whole screen
+   318 00000301 CD30                <1>     int 30h
+   319                              <1> 
+   320 00000303 488D0591FFFFFF      <1>     lea rax, init   ;Eject init
+   321 0000030A 4989400E            <1>     mov qword [r8 + initReqPkt.endptr], rax
+   322                              <1>     return
+    13 0000030E C3                  <2>  ret
+   323                              <1> 
+   324                              <1> installInterrupt:
+   325                              <1> ;Writes the interrupt in the right place in the table
+   326                              <1>     ;al = Interrupt number
+   327                              <1>     ;rdx -> Handler to install
+   328 0000030F 0F010D2D000000      <1>     sidt [myIdt]
+   329 00000316 0FB6C0              <1>     movzx eax, al
+   330 00000319 4892                <1>     xchg rdx, rax
+   331 0000031B 48C1E204            <1>     shl rdx, 4h     ;Multiply IDT entry number by 16
+   332 0000031F 4803151F000000      <1>     add rdx, qword [myIdt.base]    
+   333 00000326 668902              <1>     mov word [rdx], ax  ;Get low word into offset 15...0
+   334 00000329 48C1E810            <1>     shr rax, 10h    ;Bring next word low
+   335 0000032D 66894206            <1>     mov word [rdx + 6], ax  ;Get low word into offset 31...16
+   336 00000331 48C1E810            <1>     shr rax, 10h    ;Bring last dword low
+   337 00000335 894208              <1>     mov dword [rdx + 8], eax
+   338 00000338 C3                  <1>     ret
+   339                              <1> getIntHdlr:
+   340                              <1> ;Gets an interrupt value. 
+   341                              <1> ;Input: al = Interrupt number
+   342                              <1> ;Output: rbx = Interrupt Vector
+   343 00000339 50                  <1>     push rax
+   344 0000033A B802120000          <1>     mov eax, 1202h  ;Get Interrupt handler in rbx
+   345 0000033F CD2F                <1>     int 2Fh
+   346 00000341 58                  <1>     pop rax
+   347                              <1>     return
+    13 00000342 C3                  <2>  ret
+   348                              <1>     ;sidt [myIdt]
+   349                              <1>     ;movzx eax, al
+   350                              <1>     ;shl rax, 4h     ;Multiply IDT entry number by 16 (Size of IDT entry)
+   351                              <1>     ;add rax, qword [myIdt.base]    
+   352                              <1>     ;xor ebx, ebx
+   353                              <1>     ;mov ebx, dword [rax + 8]    ;Get bits 63...32
+   354                              <1>     ;shl rbx, 10h    ;Push the high dword high
+   355                              <1>     ;mov bx, word [rax + 6]      ;Get bits 31...16
+   356                              <1>     ;shl rbx, 10h    ;Push word 2 into posiiton
+   357                              <1>     ;mov bx, word [rax]          ;Get bits 15...0
+   358                              <1>     ;return
+   359                              <1> myIdt:
+   360 00000343 0000                <1> .limit  dw 0
+   361 00000345 0000000000000000    <1> .base   dq 0
+   361          ------------------  <1>  info: assembly required 1+2+2 passes
+

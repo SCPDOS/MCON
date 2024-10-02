@@ -1,0 +1,305 @@
+
+- NASM Map file ---------------------------------------------------------------
+
+Source file:  ./src/mcon.asm
+Output file:  ./bin/mcon.sys
+
+-- Program origin -------------------------------------------------------------
+
+00000000
+
+-- Sections (summary) ---------------------------------------------------------
+
+Vstart            Start             Stop              Length    Class     Name
+               0                 0                 0  00000000  progbits  .text
+               0                 0               34D  0000034D  progbits  cseg
+
+-- Sections (detailed) --------------------------------------------------------
+
+---- Section .text ------------------------------------------------------------
+
+class:     progbits
+length:                   0
+start:                    0
+align:     not defined
+follows:   not defined
+vstart:                   0
+valign:    not defined
+vfollows:  not defined
+
+---- Section cseg -------------------------------------------------------------
+
+class:     progbits
+length:                 34D
+start:                    0
+align:     not defined
+follows:   not defined
+vstart:                   0
+valign:    not defined
+vfollows:  not defined
+
+-- Symbols --------------------------------------------------------------------
+
+---- No Section ---------------------------------------------------------------
+
+Value     Name
+00000000  drvHdr
+00000000  drvHdr.nxtPtr
+00000008  drvHdr.attrib
+0000000A  drvHdr.strPtr
+00000012  drvHdr.intPtr
+0000001A  drvHdr.drvUnt
+0000001A  drvHdr.drvNam
+00000022  drvHdr_size
+00000000  drvINIT
+00000001  drvMEDCHK
+00000002  drvBUILDBPB
+00000003  drvIOCTLREAD
+00000004  drvREAD
+00000005  drvNONDESTREAD
+00000006  drvINSTATUS
+00000007  drvFLUSHINBUF
+00000008  drvWRITE
+00000009  drvWRITEVERIFY
+0000000A  drvOUTSTATUS
+0000000B  drvFLUSHOUTBUF
+0000000C  drvIOCTLWRITE
+0000000D  drvOPEN
+0000000E  drvCLOSE
+0000000F  drvREMMEDCHECK
+00000010  drvOUTTILBUSY
+00000013  drvIOCTL
+00000014  drvStopCon
+00000015  drvRestartCon
+00000017  drvGETDRVMAP
+00000018  drvSETDRVMAP
+00000000  drvWPErr
+00000001  drvBadUnit
+00000002  drvNotReady
+00000003  drvBadCmd
+00000004  drvCRCErr
+00000005  drvBadDrvReq
+00000006  drvBadSeek
+00000007  drvBadMed
+00000008  drvSecNotFnd
+00000009  drvNoPaper
+0000000A  drvWriteFault
+0000000B  drvReadFault
+0000000C  drvGenFault
+0000000F  drvBadDskChnge
+00008000  drvErrStatus
+00000100  drvDonStatus
+00000200  drvBsyStatus
+00000001  devDrvConIn
+00000002  devDrvConOut
+00000004  devDrvNulDev
+00000008  devDrvClockDev
+00000010  devDrvFastOut
+00000020  devDrvMulti
+00000040  devDrvIOCTL
+00000800  devDrvHdlCTL
+00004000  devDrvIOCTLRW
+00008000  devDrvChar
+00000000  drvReqHdr
+00000000  drvReqHdr.hdrlen
+00000001  drvReqHdr.unitnm
+00000002  drvReqHdr.cmdcde
+00000003  drvReqHdr.status
+00000005  drvReqHdr.devptr
+0000000D  drvReqHdr_size
+00000000  initReqPkt
+00000000  initReqPkt.hdrlen
+00000001  initReqPkt.unitnm
+00000002  initReqPkt.cmdcde
+00000003  initReqPkt.status
+00000005  initReqPkt.devptr
+0000000D  initReqPkt.numunt
+0000000E  initReqPkt.endptr
+00000016  initReqPkt.optptr
+0000001E  initReqPkt.drvnum
+0000001F  initReqPkt_size
+00000000  mediaCheckReqPkt
+00000000  mediaCheckReqPkt.hdrlen
+00000001  mediaCheckReqPkt.unitnm
+00000002  mediaCheckReqPkt.cmdcde
+00000003  mediaCheckReqPkt.status
+00000005  mediaCheckReqPkt.devptr
+0000000D  mediaCheckReqPkt.medesc
+0000000E  mediaCheckReqPkt.medret
+0000000F  mediaCheckReqPkt.desptr
+00000017  mediaCheckReqPkt_size
+00000000  bpbBuildReqPkt
+00000000  bpbBuildReqPkt.hdrlen
+00000001  bpbBuildReqPkt.unitnm
+00000002  bpbBuildReqPkt.cmdcde
+00000003  bpbBuildReqPkt.status
+00000005  bpbBuildReqPkt.devptr
+0000000D  bpbBuildReqPkt.medesc
+0000000E  bpbBuildReqPkt.bufptr
+00000016  bpbBuildReqPkt.bpbptr
+0000001E  bpbBuildReqPkt_size
+00000000  ioReqPkt
+00000000  ioReqPkt.hdrlen
+00000001  ioReqPkt.unitnm
+00000002  ioReqPkt.cmdcde
+00000003  ioReqPkt.status
+00000005  ioReqPkt.devptr
+0000000D  ioReqPkt.medesc
+0000000E  ioReqPkt.bufptr
+00000016  ioReqPkt.tfrlen
+0000001A  ioReqPkt.strtsc
+00000022  ioReqPkt.desptr
+0000002A  ioReqPkt_size
+00000000  ndInNoWaitPkt
+00000000  ndInNoWaitPkt.hdrlen
+00000001  ndInNoWaitPkt.unitnm
+00000002  ndInNoWaitPkt.cmdcde
+00000003  ndInNoWaitPkt.status
+00000005  ndInNoWaitPkt.devptr
+0000000D  ndInNoWaitPkt.retbyt
+0000000E  ndInNoWaitPkt_size
+00000000  statusReqPkt
+00000000  statusReqPkt.hdrlen
+00000001  statusReqPkt.unitnm
+00000002  statusReqPkt.cmdcde
+00000003  statusReqPkt.status
+00000005  statusReqPkt.devptr
+0000000D  statusReqPkt_size
+00000000  flushReqPkt
+00000000  flushReqPkt.hdrlen
+00000001  flushReqPkt.unitnm
+00000002  flushReqPkt.cmdcde
+00000003  flushReqPkt.status
+00000005  flushReqPkt.devptr
+0000000D  flushReqPkt_size
+00000000  openReqPkt
+00000000  openReqPkt.hdrlen
+00000001  openReqPkt.unitnm
+00000002  openReqPkt.cmdcde
+00000003  openReqPkt.status
+00000005  openReqPkt.devptr
+0000000D  openReqPkt_size
+00000000  closeReqPkt
+00000000  closeReqPkt.hdrlen
+00000001  closeReqPkt.unitnm
+00000002  closeReqPkt.cmdcde
+00000003  closeReqPkt.status
+00000005  closeReqPkt.devptr
+0000000D  closeReqPkt_size
+00000000  remMediaReqPkt
+00000000  remMediaReqPkt.hdrlen
+00000001  remMediaReqPkt.unitnm
+00000002  remMediaReqPkt.cmdcde
+00000003  remMediaReqPkt.status
+00000005  remMediaReqPkt.devptr
+0000000D  remMediaReqPkt_size
+00000000  ioctlReqPkt
+00000000  ioctlReqPkt.hdrlen
+00000001  ioctlReqPkt.unitnm
+00000002  ioctlReqPkt.cmdcde
+00000003  ioctlReqPkt.status
+00000005  ioctlReqPkt.devptr
+0000000D  ioctlReqPkt.majfun
+0000000E  ioctlReqPkt.minfun
+0000000F  ioctlReqPkt.rsival
+00000017  ioctlReqPkt.rdival
+0000001F  ioctlReqPkt.ctlptr
+00000027  ioctlReqPkt_size
+00000000  getDevReqPkt
+00000000  getDevReqPkt.hdrlen
+00000001  getDevReqPkt.unitnm
+00000002  getDevReqPkt.cmdcde
+00000003  getDevReqPkt.status
+00000005  getDevReqPkt.devptr
+0000000D  getDevReqPkt_size
+00000000  setDevReqPkt
+00000000  setDevReqPkt.hdrlen
+00000001  setDevReqPkt.unitnm
+00000002  setDevReqPkt.cmdcde
+00000003  setDevReqPkt.status
+00000005  setDevReqPkt.devptr
+0000000D  setDevReqPkt_size
+00000000  genioctlGetParamsTable
+00000000  genioctlGetParamsTable.size
+00000001  genioctlGetParamsTable.res
+00000008  genioctlGetParamsTable.sectorSize
+00000010  genioctlGetParamsTable.numSectors
+00000018  genioctlGetParamsTable_size
+00000000  genioctlLBAformat
+00000000  genioctlLBAformat.size
+00000001  genioctlLBAformat.numSectors
+00000002  genioctlLBAformat.res
+00000008  genioctlLBAformat.startSector
+00000010  genioctlLBAformat_size
+00000000  genioctlLBAwrite
+00000000  genioctlLBAwrite.size
+00000001  genioctlLBAwrite.numSectors
+00000002  genioctlLBAwrite.res
+00000008  genioctlLBAwrite.startSector
+00000010  genioctlLBAwrite.xferBuffer
+00000018  genioctlLBAwrite_size
+00000000  mScrCap
+00000000  mScrCap.wVer
+00000002  mScrCap.wLen
+00000004  mScrCap.wMagic
+00000006  mScrCap.bScrNum
+00000007  mScrCap.qHlpPtr
+0000000F  mScrCap_size
+00000007  maxScr
+00000014  funcTblE
+
+
+---- Section cseg -------------------------------------------------------------
+
+Real              Virtual           Name
+               0                 0  conHdr
+              22                22  conBuf
+              23                23  hlpPtr
+              2B                2B  funcTbl
+              53                53  oldKbdHdlr
+              5B                5B  magicKey
+              5D                5D  inHdlr
+              5E                5E  strategy
+              8D                8D  exit
+              94                94  exit.err
+              9D                9D  noOp
+              9E                9E  unkExit
+              A0                A0  errorExit
+              AB                AB  read
+              B9                B9  read.cre1
+              CC                CC  read.cre11
+              D7                D7  read.cre12
+              DB                DB  read.cre2
+              E0                E0  read.cre3
+              EF                EF  ndRead
+             106               106  ndRead.cnr0
+             10B               10B  ndRead.cnr1
+             113               113  ndRead.cnr2
+             11B               11B  inStatus
+             128               128  flushInBuf
+             13B               13B  flushInBuf.cfib0
+             142               142  ..@80.a
+             148               148  write
+             15A               15A  write.cw1
+             167               167  write.cw2
+             16C               16C  genIOCTL
+             1BA               1BA  genIOCTL.exitBad
+             1C3               1C3  mConHlp
+             1D5               1D5  delHlp
+             1E4               1E4  getScreen
+             1F1               1F1  swapScreen
+             203               203  swapScreen.err
+             20A               20A  resetScreen
+             228               228  fastOutput
+             230               230  ctrlBreak
+             239               239  newKeybIntr
+             297               297  newKeybIntr.exit
+             29B               29B  init
+             2DF               2DF  init.ci0
+             2EB               2EB  init.ci1
+             30F               30F  installInterrupt
+             339               339  getIntHdlr
+             343               343  myIdt
+             343               343  myIdt.limit
+             345               345  myIdt.base
+
