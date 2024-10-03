@@ -12,7 +12,7 @@ Output file:  ./bin/mcon.sys
 
 Vstart            Start             Stop              Length    Class     Name
                0                 0                 0  00000000  progbits  .text
-               0                 0               34D  0000034D  progbits  cseg
+               0                 0               34E  0000034E  progbits  cseg
 
 -- Sections (detailed) --------------------------------------------------------
 
@@ -30,7 +30,7 @@ vfollows:  not defined
 ---- Section cseg -------------------------------------------------------------
 
 class:     progbits
-length:                 34D
+length:                 34E
 start:                    0
 align:     not defined
 follows:   not defined
@@ -289,17 +289,17 @@ Real              Virtual           Name
              1E4               1E4  getScreen
              1F1               1F1  swapScreen
              203               203  swapScreen.err
-             20A               20A  resetScreen
-             228               228  fastOutput
-             230               230  ctrlBreak
-             239               239  newKeybIntr
-             297               297  newKeybIntr.exit
-             29B               29B  init
-             2DF               2DF  init.ci0
-             2EB               2EB  init.ci1
-             30F               30F  installInterrupt
-             339               339  getIntHdlr
-             343               343  myIdt
-             343               343  myIdt.limit
-             345               345  myIdt.base
+             205               205  resetScreen
+             229               229  fastOutput
+             231               231  ctrlBreak
+             23A               23A  newKeybIntr
+             298               298  newKeybIntr.exit
+             29C               29C  init
+             2E0               2E0  init.ci0
+             2EC               2EC  init.ci1
+             310               310  installInterrupt
+             33A               33A  getIntHdlr
+             344               344  myIdt
+             344               344  myIdt.limit
+             346               346  myIdt.base
 

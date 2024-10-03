@@ -200,7 +200,6 @@ swapScreen:
     int 30h         ;Swap active page on the VGA!
     return
 .err:
-    mov eax, drvBadUnit
     stc
     return
 resetScreen:

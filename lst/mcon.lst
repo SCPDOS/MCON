@@ -419,7 +419,7 @@
      9 00000023 [9D00000000000000]  <1> hlpPtr  dq noOp ;Ptr to the DOS session help interface. Default to NOP
     10                              <1> 
     11                              <1> funcTbl:
-    12 0000002B 7002                <1>     dw init - funcTbl       ;Init function
+    12 0000002B 7102                <1>     dw init - funcTbl       ;Init function
     13 0000002D 7200                <1>     dw noOp - funcTbl       ;Media Check
     14 0000002F 7200                <1>     dw noOp - funcTbl       ;Build BPB
     15 00000031 7300                <1>     dw unkExit - funcTbl    ;IOCTL Input
@@ -634,7 +634,7 @@
    172 000001C7 FFC8                <1>     dec eax
    173 000001C9 7426                <1>     jz swapScreen
    174 000001CB FFC8                <1>     dec eax
-   175 000001CD 743B                <1>     jz resetScreen
+   175 000001CD 7436                <1>     jz resetScreen
    176 000001CF FFC8                <1>     dec eax
    177 000001D1 7402                <1>     jz delHlp
    178 000001D3 F9                  <1>     stc
@@ -666,168 +666,167 @@
    201                              <1>     return
     13 00000202 C3                  <2>  ret
    202                              <1> .err:
-   203 00000203 B801000000          <1>     mov eax, drvBadUnit
-   204 00000208 F9                  <1>     stc
-   205                              <1>     return
-    13 00000209 C3                  <2>  ret
-   206                              <1> resetScreen:
-   207                              <1> ;Resets the currently active screen!
-   208                              <1>     ;mov ah, 0Bh  ; Set overscan to black (when Graphics becomes supported)
-   209                              <1>     ;xor ebx, ebx
-   210                              <1>     ;int 30h
-   211 0000020A B40F                <1>     mov ah, 0Fh ;Get screen mode
-   212 0000020C CD30                <1>     int 30h
-   213 0000020E 53                  <1>     push rbx    ;Save the screen number on stack
-   214 0000020F 0FB6D4              <1>     movzx edx, ah   ;Get number of columns in dl
-   215 00000212 FECA                <1>     dec dl
-   216 00000214 B619                <1>     mov dh, 25  ;Number of rows is standard
-   217 00000216 31C0                <1>     xor eax, eax
-   218 00000218 89C1                <1>     mov ecx, eax
-   219 0000021A B707                <1>     mov bh, 7   ;Screen attributes
-   220 0000021C B406                <1>     mov ah, 6   ;Scroll
-   221 0000021E CD30                <1>     int 30h
-   222 00000220 31D2                <1>     xor edx, edx    ;Set cursor coordinates to top left of screen
-   223 00000222 5B                  <1>     pop rbx     ;Get back the screen number
-   224 00000223 B402                <1>     mov ah, 2
-   225 00000225 CD30                <1>     int 30h
-   226                              <1>     return
-    13 00000227 C3                  <2>  ret
-   227                              <1>     
-   228                              <1> ;------------- Driver built-in Interrupt Routines -------------
-   229                              <1> fastOutput:         ;This CON driver supports Int 29h
-   230                              <1> ;Called with char to transfer in al
-   231 00000228 50                  <1>     push rax
-   232 00000229 B40E                <1>     mov ah, 0Eh
-   233 0000022B CD30                <1>     int 30h
-   234 0000022D 58                  <1>     pop rax
-   235 0000022E 48CF                <1>     iretq
-   236                              <1> ctrlBreak:
-   237                              <1> ;CON Int 3Bh handler to detect CTRL+BREAK
-   238 00000230 C605EBFDFFFF03      <1>     mov byte [conBuf], 03h    ;Place a ^C in buffer
-   239 00000237 48CF                <1>     iretq
-   240                              <1> 
-   241                              <1> newKeybIntr:        ;New Keyboard Interrupt Hdlr
-   242 00000239 50                  <1>     push rax        ;Save RAX as a trashed reg
-   243 0000023A 52                  <1>     push rdx
-   244                              <1> ;Simulate an IRQ entry to old kbdHldr
-   245 0000023B 4889E2              <1>     mov rdx, rsp
-   246 0000023E 31C0                <1>     xor eax, eax
-   247 00000240 668CD0              <1>     mov ax, ss
-   248 00000243 50                  <1>     push rax
-   249 00000244 52                  <1>     push rdx
-   250 00000245 9C                  <1>     pushfq
-   251 00000246 668CC8              <1>     mov ax, cs
-   252 00000249 50                  <1>     push rax
-   253 0000024A FF1503FEFFFF        <1>     call qword [oldKbdHdlr]
-   254                              <1> 
-   255 00000250 F60506FEFFFFFF      <1>     test byte [inHdlr], -1      ;If set, we are reentering this. Exit!!
-   256 00000257 753E                <1>     jnz .exit
-   257 00000259 66813DF9FDFFFFFFFF  <1>     cmp word [magicKey], -1     ;If no magic key to check, exit!
-   258 00000262 7433                <1>     je .exit
-   259 00000264 B800010000          <1>     mov eax, 0100h  ;Now we NDlook to see what was placed in.
-   260 00000269 CD36                <1>     int 36h         
-   261 0000026B 742A                <1>     jz .exit        ;If ZF=ZE, no keystroke available (should never happen)
-   262 0000026D 663B05E7FDFFFF      <1>     cmp ax, word [magicKey] ;Did we receive the magic key
-   263 00000274 7521                <1>     jne .exit
-   264                              <1> ;Else, we now pull the magic key and signal SM!
-   265 00000276 C605E0FDFFFFFF      <1>     mov byte [inHdlr], -1   ;Set reentrancy flag!
-   266                              <1> ;Pull the magic char out of the buffer!
-   267 0000027D 31C0                <1>     xor eax, eax
-   268 0000027F CD36                <1>     int 36h
-   269                              <1> ;Now pass this information to SM
-   270 00000281 89C2                <1>     mov edx, eax    ;Pass sc/ASCII pair in edx
-   271 00000283 B801000000          <1>     mov eax, 1      ;Call function 1
-   272 00000288 FA                  <1>     cli ;Pause interrupts
-   273 00000289 C605CDFDFFFF00      <1>     mov byte [inHdlr], 0    ;Clear reentrancy flag!
-   274 00000290 FF158DFDFFFF        <1>     call qword [hlpPtr]     ;Call SM
-   275 00000296 FB                  <1>     sti
-   276                              <1> .exit:
-   277 00000297 5A                  <1>     pop rdx
-   278 00000298 58                  <1>     pop rax
-   279 00000299 48CF                <1>     iretq
+   203 00000203 F9                  <1>     stc
+   204                              <1>     return
+    13 00000204 C3                  <2>  ret
+   205                              <1> resetScreen:
+   206                              <1> ;Resets the currently active screen!
+   207 00000205 B40B                <1>     mov ah, 0Bh  ; Set overscan to black (when Graphics becomes supported)
+   208 00000207 31DB                <1>     xor ebx, ebx
+   209 00000209 CD30                <1>     int 30h
+   210 0000020B B40F                <1>     mov ah, 0Fh ;Get screen mode
+   211 0000020D CD30                <1>     int 30h
+   212 0000020F 53                  <1>     push rbx    ;Save the screen number on stack
+   213 00000210 0FB6D4              <1>     movzx edx, ah   ;Get number of columns in dl
+   214 00000213 FECA                <1>     dec dl
+   215 00000215 B619                <1>     mov dh, 25  ;Number of rows is standard
+   216 00000217 31C0                <1>     xor eax, eax
+   217 00000219 89C1                <1>     mov ecx, eax
+   218 0000021B B707                <1>     mov bh, 7   ;Screen attributes
+   219 0000021D B406                <1>     mov ah, 6   ;Scroll
+   220 0000021F CD30                <1>     int 30h
+   221 00000221 31D2                <1>     xor edx, edx    ;Set cursor coordinates to top left of screen
+   222 00000223 5B                  <1>     pop rbx     ;Get back the screen number
+   223 00000224 B402                <1>     mov ah, 2
+   224 00000226 CD30                <1>     int 30h
+   225                              <1>     return
+    13 00000228 C3                  <2>  ret
+   226                              <1>     
+   227                              <1> ;------------- Driver built-in Interrupt Routines -------------
+   228                              <1> fastOutput:         ;This CON driver supports Int 29h
+   229                              <1> ;Called with char to transfer in al
+   230 00000229 50                  <1>     push rax
+   231 0000022A B40E                <1>     mov ah, 0Eh
+   232 0000022C CD30                <1>     int 30h
+   233 0000022E 58                  <1>     pop rax
+   234 0000022F 48CF                <1>     iretq
+   235                              <1> ctrlBreak:
+   236                              <1> ;CON Int 3Bh handler to detect CTRL+BREAK
+   237 00000231 C605EAFDFFFF03      <1>     mov byte [conBuf], 03h    ;Place a ^C in buffer
+   238 00000238 48CF                <1>     iretq
+   239                              <1> 
+   240                              <1> newKeybIntr:        ;New Keyboard Interrupt Hdlr
+   241 0000023A 50                  <1>     push rax        ;Save RAX as a trashed reg
+   242 0000023B 52                  <1>     push rdx
+   243                              <1> ;Simulate an IRQ entry to old kbdHldr
+   244 0000023C 4889E2              <1>     mov rdx, rsp
+   245 0000023F 31C0                <1>     xor eax, eax
+   246 00000241 668CD0              <1>     mov ax, ss
+   247 00000244 50                  <1>     push rax
+   248 00000245 52                  <1>     push rdx
+   249 00000246 9C                  <1>     pushfq
+   250 00000247 668CC8              <1>     mov ax, cs
+   251 0000024A 50                  <1>     push rax
+   252 0000024B FF1502FEFFFF        <1>     call qword [oldKbdHdlr]
+   253                              <1> 
+   254 00000251 F60505FEFFFFFF      <1>     test byte [inHdlr], -1      ;If set, we are reentering this. Exit!!
+   255 00000258 753E                <1>     jnz .exit
+   256 0000025A 66813DF8FDFFFFFFFF  <1>     cmp word [magicKey], -1     ;If no magic key to check, exit!
+   257 00000263 7433                <1>     je .exit
+   258 00000265 B800010000          <1>     mov eax, 0100h  ;Now we NDlook to see what was placed in.
+   259 0000026A CD36                <1>     int 36h         
+   260 0000026C 742A                <1>     jz .exit        ;If ZF=ZE, no keystroke available (should never happen)
+   261 0000026E 663B05E6FDFFFF      <1>     cmp ax, word [magicKey] ;Did we receive the magic key
+   262 00000275 7521                <1>     jne .exit
+   263                              <1> ;Else, we now pull the magic key and signal SM!
+   264 00000277 C605DFFDFFFFFF      <1>     mov byte [inHdlr], -1   ;Set reentrancy flag!
+   265                              <1> ;Pull the magic char out of the buffer!
+   266 0000027E 31C0                <1>     xor eax, eax
+   267 00000280 CD36                <1>     int 36h
+   268                              <1> ;Now pass this information to SM
+   269 00000282 89C2                <1>     mov edx, eax    ;Pass sc/ASCII pair in edx
+   270 00000284 B801000000          <1>     mov eax, 1      ;Call function 1
+   271 00000289 FA                  <1>     cli ;Pause interrupts
+   272 0000028A C605CCFDFFFF00      <1>     mov byte [inHdlr], 0    ;Clear reentrancy flag!
+   273 00000291 FF158CFDFFFF        <1>     call qword [hlpPtr]     ;Call SM
+   274 00000297 FB                  <1>     sti
+   275                              <1> .exit:
+   276 00000298 5A                  <1>     pop rdx
+   277 00000299 58                  <1>     pop rax
+   278 0000029A 48CF                <1>     iretq
+   279                              <1> 
    280                              <1> 
-   281                              <1> 
-   282                              <1> ;------------------ EJECT POINT ------------------
-   283                              <1> 
-   284                              <1> init:
-   285                              <1> ;Start by hooking int 3Bh, int 29h and 0F1h (IRQ1) as part of the CON driver
-   286                              <1> ;DO FASTOUT
-   287 0000029B 488D1586FFFFFF      <1>     lea rdx, fastOutput
-   288 000002A2 B829000000          <1>     mov eax, 29h
-   289 000002A7 E863000000          <1>     call installInterrupt
-   290                              <1> ;DO CTRL+BREAK
-   291 000002AC 488D157DFFFFFF      <1>     lea rdx, ctrlBreak
-   292 000002B3 B83B000000          <1>     mov eax, 3Bh
-   293 000002B8 E852000000          <1>     call installInterrupt
-   294                              <1> ;DO IRQ1
-   295 000002BD B8F1000000          <1>     mov eax, 0F1h   ;Get IRQ1 handler in rbx
-   296 000002C2 E872000000          <1>     call getIntHdlr
-   297 000002C7 48891D85FDFFFF      <1>     mov qword [oldKbdHdlr], rbx
-   298 000002CE 488D1564FFFFFF      <1>     lea rdx, newKeybIntr
-   299 000002D5 B8F1000000          <1>     mov eax, 0F1h
-   300 000002DA E830000000          <1>     call installInterrupt
-   301                              <1> 
-   302                              <1> .ci0:
-   303 000002DF B401                <1>     mov ah, 01      ;Get buffer status
-   304 000002E1 CD36                <1>     int 36h
-   305 000002E3 7406                <1>     jz .ci1      ;If zero clear => no more keys to read
-   306 000002E5 30E4                <1>     xor ah, ah
-   307 000002E7 CD36                <1>     int 36h ;Read key to flush from buffer
-   308 000002E9 EBF4                <1>     jmp short .ci0
-   309                              <1> .ci1:
-   310 000002EB B800050000          <1>     mov eax, 0500h  ;Set page zero as the default page
-   311 000002F0 CD30                <1>     int 30h
-   312 000002F2 B402                <1>     mov ah, 02h
-   313 000002F4 31D2                <1>     xor edx, edx    ;Set screen cursor to top right corner
-   314 000002F6 88D7                <1>     mov bh, dl      ;Set cursor for page 0
-   315 000002F8 CD30                <1>     int 30h
-   316 000002FA B707                <1>     mov bh, 07h     ;Grey/Black attribs
-   317 000002FC B800060000          <1>     mov eax, 0600h  ;Clear whole screen
-   318 00000301 CD30                <1>     int 30h
-   319                              <1> 
-   320 00000303 488D0591FFFFFF      <1>     lea rax, init   ;Eject init
-   321 0000030A 4989400E            <1>     mov qword [r8 + initReqPkt.endptr], rax
-   322                              <1>     return
-    13 0000030E C3                  <2>  ret
-   323                              <1> 
-   324                              <1> installInterrupt:
-   325                              <1> ;Writes the interrupt in the right place in the table
-   326                              <1>     ;al = Interrupt number
-   327                              <1>     ;rdx -> Handler to install
-   328 0000030F 0F010D2D000000      <1>     sidt [myIdt]
-   329 00000316 0FB6C0              <1>     movzx eax, al
-   330 00000319 4892                <1>     xchg rdx, rax
-   331 0000031B 48C1E204            <1>     shl rdx, 4h     ;Multiply IDT entry number by 16
-   332 0000031F 4803151F000000      <1>     add rdx, qword [myIdt.base]    
-   333 00000326 668902              <1>     mov word [rdx], ax  ;Get low word into offset 15...0
-   334 00000329 48C1E810            <1>     shr rax, 10h    ;Bring next word low
-   335 0000032D 66894206            <1>     mov word [rdx + 6], ax  ;Get low word into offset 31...16
-   336 00000331 48C1E810            <1>     shr rax, 10h    ;Bring last dword low
-   337 00000335 894208              <1>     mov dword [rdx + 8], eax
-   338 00000338 C3                  <1>     ret
-   339                              <1> getIntHdlr:
-   340                              <1> ;Gets an interrupt value. 
-   341                              <1> ;Input: al = Interrupt number
-   342                              <1> ;Output: rbx = Interrupt Vector
-   343 00000339 50                  <1>     push rax
-   344 0000033A B802120000          <1>     mov eax, 1202h  ;Get Interrupt handler in rbx
-   345 0000033F CD2F                <1>     int 2Fh
-   346 00000341 58                  <1>     pop rax
-   347                              <1>     return
-    13 00000342 C3                  <2>  ret
-   348                              <1>     ;sidt [myIdt]
-   349                              <1>     ;movzx eax, al
-   350                              <1>     ;shl rax, 4h     ;Multiply IDT entry number by 16 (Size of IDT entry)
-   351                              <1>     ;add rax, qword [myIdt.base]    
-   352                              <1>     ;xor ebx, ebx
-   353                              <1>     ;mov ebx, dword [rax + 8]    ;Get bits 63...32
-   354                              <1>     ;shl rbx, 10h    ;Push the high dword high
-   355                              <1>     ;mov bx, word [rax + 6]      ;Get bits 31...16
-   356                              <1>     ;shl rbx, 10h    ;Push word 2 into posiiton
-   357                              <1>     ;mov bx, word [rax]          ;Get bits 15...0
-   358                              <1>     ;return
-   359                              <1> myIdt:
-   360 00000343 0000                <1> .limit  dw 0
-   361 00000345 0000000000000000    <1> .base   dq 0
-   361          ------------------  <1>  info: assembly required 1+2+2 passes
+   281                              <1> ;------------------ EJECT POINT ------------------
+   282                              <1> 
+   283                              <1> init:
+   284                              <1> ;Start by hooking int 3Bh, int 29h and 0F1h (IRQ1) as part of the CON driver
+   285                              <1> ;DO FASTOUT
+   286 0000029C 488D1586FFFFFF      <1>     lea rdx, fastOutput
+   287 000002A3 B829000000          <1>     mov eax, 29h
+   288 000002A8 E863000000          <1>     call installInterrupt
+   289                              <1> ;DO CTRL+BREAK
+   290 000002AD 488D157DFFFFFF      <1>     lea rdx, ctrlBreak
+   291 000002B4 B83B000000          <1>     mov eax, 3Bh
+   292 000002B9 E852000000          <1>     call installInterrupt
+   293                              <1> ;DO IRQ1
+   294 000002BE B8F1000000          <1>     mov eax, 0F1h   ;Get IRQ1 handler in rbx
+   295 000002C3 E872000000          <1>     call getIntHdlr
+   296 000002C8 48891D84FDFFFF      <1>     mov qword [oldKbdHdlr], rbx
+   297 000002CF 488D1564FFFFFF      <1>     lea rdx, newKeybIntr
+   298 000002D6 B8F1000000          <1>     mov eax, 0F1h
+   299 000002DB E830000000          <1>     call installInterrupt
+   300                              <1> 
+   301                              <1> .ci0:
+   302 000002E0 B401                <1>     mov ah, 01      ;Get buffer status
+   303 000002E2 CD36                <1>     int 36h
+   304 000002E4 7406                <1>     jz .ci1      ;If zero clear => no more keys to read
+   305 000002E6 30E4                <1>     xor ah, ah
+   306 000002E8 CD36                <1>     int 36h ;Read key to flush from buffer
+   307 000002EA EBF4                <1>     jmp short .ci0
+   308                              <1> .ci1:
+   309 000002EC B800050000          <1>     mov eax, 0500h  ;Set page zero as the default page
+   310 000002F1 CD30                <1>     int 30h
+   311 000002F3 B402                <1>     mov ah, 02h
+   312 000002F5 31D2                <1>     xor edx, edx    ;Set screen cursor to top right corner
+   313 000002F7 88D7                <1>     mov bh, dl      ;Set cursor for page 0
+   314 000002F9 CD30                <1>     int 30h
+   315 000002FB B707                <1>     mov bh, 07h     ;Grey/Black attribs
+   316 000002FD B800060000          <1>     mov eax, 0600h  ;Clear whole screen
+   317 00000302 CD30                <1>     int 30h
+   318                              <1> 
+   319 00000304 488D0591FFFFFF      <1>     lea rax, init   ;Eject init
+   320 0000030B 4989400E            <1>     mov qword [r8 + initReqPkt.endptr], rax
+   321                              <1>     return
+    13 0000030F C3                  <2>  ret
+   322                              <1> 
+   323                              <1> installInterrupt:
+   324                              <1> ;Writes the interrupt in the right place in the table
+   325                              <1>     ;al = Interrupt number
+   326                              <1>     ;rdx -> Handler to install
+   327 00000310 0F010D2D000000      <1>     sidt [myIdt]
+   328 00000317 0FB6C0              <1>     movzx eax, al
+   329 0000031A 4892                <1>     xchg rdx, rax
+   330 0000031C 48C1E204            <1>     shl rdx, 4h     ;Multiply IDT entry number by 16
+   331 00000320 4803151F000000      <1>     add rdx, qword [myIdt.base]    
+   332 00000327 668902              <1>     mov word [rdx], ax  ;Get low word into offset 15...0
+   333 0000032A 48C1E810            <1>     shr rax, 10h    ;Bring next word low
+   334 0000032E 66894206            <1>     mov word [rdx + 6], ax  ;Get low word into offset 31...16
+   335 00000332 48C1E810            <1>     shr rax, 10h    ;Bring last dword low
+   336 00000336 894208              <1>     mov dword [rdx + 8], eax
+   337 00000339 C3                  <1>     ret
+   338                              <1> getIntHdlr:
+   339                              <1> ;Gets an interrupt value. 
+   340                              <1> ;Input: al = Interrupt number
+   341                              <1> ;Output: rbx = Interrupt Vector
+   342 0000033A 50                  <1>     push rax
+   343 0000033B B802120000          <1>     mov eax, 1202h  ;Get Interrupt handler in rbx
+   344 00000340 CD2F                <1>     int 2Fh
+   345 00000342 58                  <1>     pop rax
+   346                              <1>     return
+    13 00000343 C3                  <2>  ret
+   347                              <1>     ;sidt [myIdt]
+   348                              <1>     ;movzx eax, al
+   349                              <1>     ;shl rax, 4h     ;Multiply IDT entry number by 16 (Size of IDT entry)
+   350                              <1>     ;add rax, qword [myIdt.base]    
+   351                              <1>     ;xor ebx, ebx
+   352                              <1>     ;mov ebx, dword [rax + 8]    ;Get bits 63...32
+   353                              <1>     ;shl rbx, 10h    ;Push the high dword high
+   354                              <1>     ;mov bx, word [rax + 6]      ;Get bits 31...16
+   355                              <1>     ;shl rbx, 10h    ;Push word 2 into posiiton
+   356                              <1>     ;mov bx, word [rax]          ;Get bits 15...0
+   357                              <1>     ;return
+   358                              <1> myIdt:
+   359 00000344 0000                <1> .limit  dw 0
+   360 00000346 0000000000000000    <1> .base   dq 0
+   360          ------------------  <1>  info: assembly required 1+2+2 passes
 
