@@ -56,6 +56,9 @@ read:    ;Read Chars
     jnz .cre3   ;No, get the buffer value
     xor eax, eax
     int 36h
+    cmp ax, 7200h   ;CTRL + PrnScr? 
+    jne .cre11
+    mov al, 10h     ;Store ^P in al!
 .cre11:
     stosb
     test al, al ;Was the ascii code stored 0?
@@ -82,6 +85,9 @@ ndRead:  ;Non destructive read chars
     int 36h
     jz .cnr1        ;If zero clear => no key, go forwards
     ;Keystroke available
+    cmp ax, 7200h   ;CTRL + PrnScr?
+    jne .cnr0
+    mov al, 10h     ;Report ^P
 .cnr0:
     mov byte [r8 + ndInNoWaitPkt.retbyt], al   ;Move char in al
     return

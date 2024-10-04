@@ -12,7 +12,7 @@ Output file:  ./bin/mcon.sys
 
 Vstart            Start             Stop              Length    Class     Name
                0                 0                 0  00000000  progbits  .text
-               0                 0               34E  0000034E  progbits  cseg
+               0                 0               35E  0000035E  progbits  cseg
 
 -- Sections (detailed) --------------------------------------------------------
 
@@ -30,7 +30,7 @@ vfollows:  not defined
 ---- Section cseg -------------------------------------------------------------
 
 class:     progbits
-length:                 34E
+length:                 35E
 start:                    0
 align:     not defined
 follows:   not defined
@@ -267,39 +267,39 @@ Real              Virtual           Name
               A0                A0  errorExit
               AB                AB  read
               B9                B9  read.cre1
-              CC                CC  read.cre11
-              D7                D7  read.cre12
-              DB                DB  read.cre2
-              E0                E0  read.cre3
-              EF                EF  ndRead
-             106               106  ndRead.cnr0
-             10B               10B  ndRead.cnr1
-             113               113  ndRead.cnr2
-             11B               11B  inStatus
-             128               128  flushInBuf
-             13B               13B  flushInBuf.cfib0
-             142               142  ..@80.a
-             148               148  write
-             15A               15A  write.cw1
-             167               167  write.cw2
-             16C               16C  genIOCTL
-             1BA               1BA  genIOCTL.exitBad
-             1C3               1C3  mConHlp
-             1D5               1D5  delHlp
-             1E4               1E4  getScreen
-             1F1               1F1  swapScreen
-             203               203  swapScreen.err
-             205               205  resetScreen
-             229               229  fastOutput
-             231               231  ctrlBreak
-             23A               23A  newKeybIntr
-             298               298  newKeybIntr.exit
-             29C               29C  init
-             2E0               2E0  init.ci0
-             2EC               2EC  init.ci1
-             310               310  installInterrupt
-             33A               33A  getIntHdlr
-             344               344  myIdt
-             344               344  myIdt.limit
-             346               346  myIdt.base
+              D4                D4  read.cre11
+              DF                DF  read.cre12
+              E3                E3  read.cre2
+              E8                E8  read.cre3
+              F7                F7  ndRead
+             116               116  ndRead.cnr0
+             11B               11B  ndRead.cnr1
+             123               123  ndRead.cnr2
+             12B               12B  inStatus
+             138               138  flushInBuf
+             14B               14B  flushInBuf.cfib0
+             152               152  ..@80.a
+             158               158  write
+             16A               16A  write.cw1
+             177               177  write.cw2
+             17C               17C  genIOCTL
+             1CA               1CA  genIOCTL.exitBad
+             1D3               1D3  mConHlp
+             1E5               1E5  delHlp
+             1F4               1F4  getScreen
+             201               201  swapScreen
+             213               213  swapScreen.err
+             215               215  resetScreen
+             239               239  fastOutput
+             241               241  ctrlBreak
+             24A               24A  newKeybIntr
+             2A8               2A8  newKeybIntr.exit
+             2AC               2AC  init
+             2F0               2F0  init.ci0
+             2FC               2FC  init.ci1
+             320               320  installInterrupt
+             34A               34A  getIntHdlr
+             354               354  myIdt
+             354               354  myIdt.limit
+             356               356  myIdt.base
 
