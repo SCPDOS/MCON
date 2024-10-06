@@ -322,9 +322,24 @@ init:
     mov eax, 0600h  ;Clear whole screen
     int 30h
 
+    mov eax, 5100h
+    int 21h             ;Get current PSP ptr
+    cmp rbx, 9          ;If we are being used as a Kernel driver, no msg!
+    je skipMsg
+;Else, print message!
+    lea rdx, helloStr   ;Print install string
+    mov eax, 0900h
+    int 21h
+skipMsg:
     lea rax, init   ;Eject init
     mov qword [r8 + initReqPkt.endptr], rax
     return
+
+helloStr    db  "--- Installing MCON Device Driver V"
+            db  vers+"0",".",rev/10+"0", (rev-rev/10*10)+"0", " ---"
+            db  10h,13h,"$"
+
+
 
 installInterrupt:
 ;Writes the interrupt in the right place in the table

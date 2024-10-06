@@ -1,4 +1,8 @@
 
+;Driver version number
+vers equ 0
+rev  equ 1
+
 conHdr:
     dq -1
     dw devDrvChar | devDrvIOCTL | devDrvMulti | devDrvFastOut | devDrvConOut | devDrvConIn

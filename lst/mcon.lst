@@ -409,43 +409,47 @@
      9                                  Segment cseg start=0 vstart=0
     10                                  %include "./src/mcdata.asm" ;Cannot put this in a separate segment due to reloc issues
      1                              <1> 
-     2                              <1> conHdr:
-     3 00000000 FFFFFFFFFFFFFFFF    <1>     dq -1
-     4 00000008 7380                <1>     dw devDrvChar | devDrvIOCTL | devDrvMulti | devDrvFastOut | devDrvConOut | devDrvConIn
-     5 0000000A [5E00000000000000]  <1>     dq strategy
-     6 00000012 [9D00000000000000]  <1>     dq noOp    ;We don't use the interrupt endpoint.
-     7 0000001A 434F4E2020202020    <1>     db "CON     "
-     8 00000022 00                  <1> conBuf  db 0    ;Single byte input buffer
-     9 00000023 [9D00000000000000]  <1> hlpPtr  dq noOp ;Ptr to the DOS session help interface. Default to NOP
-    10                              <1> 
-    11                              <1> funcTbl:
-    12 0000002B 8102                <1>     dw init - funcTbl       ;Init function
-    13 0000002D 7200                <1>     dw noOp - funcTbl       ;Media Check
-    14 0000002F 7200                <1>     dw noOp - funcTbl       ;Build BPB
-    15 00000031 7300                <1>     dw unkExit - funcTbl    ;IOCTL Input
-    16 00000033 8000                <1>     dw read - funcTbl       ;Read
-    17 00000035 CC00                <1>     dw ndRead - funcTbl     ;Non-destructive read
-    18 00000037 0001                <1>     dw inStatus - funcTbl   ;Input Status
-    19 00000039 0D01                <1>     dw flushInBuf - funcTbl ;Input flush
-    20 0000003B 2D01                <1>     dw write - funcTbl      ;Write
-    21 0000003D 2D01                <1>     dw write - funcTbl      ;Write with verify
-    22 0000003F 7200                <1>     dw noOp - funcTbl       ;Output Status
-    23 00000041 7200                <1>     dw noOp - funcTbl       ;Output Flush
-    24 00000043 7200                <1>     dw noOp - funcTbl       ;IOCTL Output
-    25 00000045 7200                <1>     dw noOp - funcTbl       ;Device Open
-    26 00000047 7200                <1>     dw noOp - funcTbl       ;Device Close
-    27 00000049 7200                <1>     dw noOp - funcTbl       ;Removable Media
-    28 0000004B 7300                <1>     dw unkExit - funcTbl    ;Reserved function
-    29 0000004D 7300                <1>     dw unkExit - funcTbl    ;Reserved function
-    30 0000004F 7300                <1>     dw unkExit - funcTbl    ;Reserved function
-    31                              <1> ; New functions
-    32 00000051 5101                <1>     dw genIOCTL - funcTbl   ;Generic IOCTL
-    33                              <1> 
-    34                              <1> funcTblE equ ($ - funcTbl)/2    ;Compute number of entries
-    35                              <1> 
-    36 00000053 0000000000000000    <1> oldKbdHdlr  dq 0    ;Ptr to the BIOS IRQ1 handler
-    37 0000005B FFFF                <1> magicKey    dw -1   ;Scancode/ASCII pair to search for. -1 means no search.
-    38 0000005D 00                  <1> inHdlr      db 0    ;Set if we are in the getchar portion of IRQ1 handler.
+     2                              <1> ;Driver version number
+     3                              <1> vers equ 0
+     4                              <1> rev  equ 1
+     5                              <1> 
+     6                              <1> conHdr:
+     7 00000000 FFFFFFFFFFFFFFFF    <1>     dq -1
+     8 00000008 7380                <1>     dw devDrvChar | devDrvIOCTL | devDrvMulti | devDrvFastOut | devDrvConOut | devDrvConIn
+     9 0000000A [5E00000000000000]  <1>     dq strategy
+    10 00000012 [9D00000000000000]  <1>     dq noOp    ;We don't use the interrupt endpoint.
+    11 0000001A 434F4E2020202020    <1>     db "CON     "
+    12 00000022 00                  <1> conBuf  db 0    ;Single byte input buffer
+    13 00000023 [9D00000000000000]  <1> hlpPtr  dq noOp ;Ptr to the DOS session help interface. Default to NOP
+    14                              <1> 
+    15                              <1> funcTbl:
+    16 0000002B 8102                <1>     dw init - funcTbl       ;Init function
+    17 0000002D 7200                <1>     dw noOp - funcTbl       ;Media Check
+    18 0000002F 7200                <1>     dw noOp - funcTbl       ;Build BPB
+    19 00000031 7300                <1>     dw unkExit - funcTbl    ;IOCTL Input
+    20 00000033 8000                <1>     dw read - funcTbl       ;Read
+    21 00000035 CC00                <1>     dw ndRead - funcTbl     ;Non-destructive read
+    22 00000037 0001                <1>     dw inStatus - funcTbl   ;Input Status
+    23 00000039 0D01                <1>     dw flushInBuf - funcTbl ;Input flush
+    24 0000003B 2D01                <1>     dw write - funcTbl      ;Write
+    25 0000003D 2D01                <1>     dw write - funcTbl      ;Write with verify
+    26 0000003F 7200                <1>     dw noOp - funcTbl       ;Output Status
+    27 00000041 7200                <1>     dw noOp - funcTbl       ;Output Flush
+    28 00000043 7200                <1>     dw noOp - funcTbl       ;IOCTL Output
+    29 00000045 7200                <1>     dw noOp - funcTbl       ;Device Open
+    30 00000047 7200                <1>     dw noOp - funcTbl       ;Device Close
+    31 00000049 7200                <1>     dw noOp - funcTbl       ;Removable Media
+    32 0000004B 7300                <1>     dw unkExit - funcTbl    ;Reserved function
+    33 0000004D 7300                <1>     dw unkExit - funcTbl    ;Reserved function
+    34 0000004F 7300                <1>     dw unkExit - funcTbl    ;Reserved function
+    35                              <1> ; New functions
+    36 00000051 5101                <1>     dw genIOCTL - funcTbl   ;Generic IOCTL
+    37                              <1> 
+    38                              <1> funcTblE equ ($ - funcTbl)/2    ;Compute number of entries
+    39                              <1> 
+    40 00000053 0000000000000000    <1> oldKbdHdlr  dq 0    ;Ptr to the BIOS IRQ1 handler
+    41 0000005B FFFF                <1> magicKey    dw -1   ;Scancode/ASCII pair to search for. -1 means no search.
+    42 0000005D 00                  <1> inHdlr      db 0    ;Set if we are in the getchar portion of IRQ1 handler.
     11                                  %include "./src/mccode.asm"
      1                              <1> ;This driver is designed to work in the MDOS environment. 
      2                              <1> 
@@ -759,18 +763,18 @@
    291                              <1> ;DO FASTOUT
    292 000002AC 488D1586FFFFFF      <1>     lea rdx, fastOutput
    293 000002B3 B829000000          <1>     mov eax, 29h
-   294 000002B8 E863000000          <1>     call installInterrupt
+   294 000002B8 E8AF000000          <1>     call installInterrupt
    295                              <1> ;DO CTRL+BREAK
    296 000002BD 488D157DFFFFFF      <1>     lea rdx, ctrlBreak
    297 000002C4 B83B000000          <1>     mov eax, 3Bh
-   298 000002C9 E852000000          <1>     call installInterrupt
+   298 000002C9 E89E000000          <1>     call installInterrupt
    299                              <1> ;DO IRQ1
    300 000002CE B8F1000000          <1>     mov eax, 0F1h   ;Get IRQ1 handler in rbx
-   301 000002D3 E872000000          <1>     call getIntHdlr
+   301 000002D3 E8BE000000          <1>     call getIntHdlr
    302 000002D8 48891D74FDFFFF      <1>     mov qword [oldKbdHdlr], rbx
    303 000002DF 488D1564FFFFFF      <1>     lea rdx, newKeybIntr
    304 000002E6 B8F1000000          <1>     mov eax, 0F1h
-   305 000002EB E830000000          <1>     call installInterrupt
+   305 000002EB E87C000000          <1>     call installInterrupt
    306                              <1> 
    307                              <1> .ci0:
    308 000002F0 B401                <1>     mov ah, 01      ;Get buffer status
@@ -790,49 +794,67 @@
    322 0000030D B800060000          <1>     mov eax, 0600h  ;Clear whole screen
    323 00000312 CD30                <1>     int 30h
    324                              <1> 
-   325 00000314 488D0591FFFFFF      <1>     lea rax, init   ;Eject init
-   326 0000031B 4989400E            <1>     mov qword [r8 + initReqPkt.endptr], rax
-   327                              <1>     return
-    13 0000031F C3                  <2>  ret
-   328                              <1> 
-   329                              <1> installInterrupt:
-   330                              <1> ;Writes the interrupt in the right place in the table
-   331                              <1>     ;al = Interrupt number
-   332                              <1>     ;rdx -> Handler to install
-   333 00000320 0F010D2D000000      <1>     sidt [myIdt]
-   334 00000327 0FB6C0              <1>     movzx eax, al
-   335 0000032A 4892                <1>     xchg rdx, rax
-   336 0000032C 48C1E204            <1>     shl rdx, 4h     ;Multiply IDT entry number by 16
-   337 00000330 4803151F000000      <1>     add rdx, qword [myIdt.base]    
-   338 00000337 668902              <1>     mov word [rdx], ax  ;Get low word into offset 15...0
-   339 0000033A 48C1E810            <1>     shr rax, 10h    ;Bring next word low
-   340 0000033E 66894206            <1>     mov word [rdx + 6], ax  ;Get low word into offset 31...16
-   341 00000342 48C1E810            <1>     shr rax, 10h    ;Bring last dword low
-   342 00000346 894208              <1>     mov dword [rdx + 8], eax
-   343 00000349 C3                  <1>     ret
-   344                              <1> getIntHdlr:
-   345                              <1> ;Gets an interrupt value. 
-   346                              <1> ;Input: al = Interrupt number
-   347                              <1> ;Output: rbx = Interrupt Vector
-   348 0000034A 50                  <1>     push rax
-   349 0000034B B802120000          <1>     mov eax, 1202h  ;Get Interrupt handler in rbx
-   350 00000350 CD2F                <1>     int 2Fh
-   351 00000352 58                  <1>     pop rax
-   352                              <1>     return
-    13 00000353 C3                  <2>  ret
-   353                              <1>     ;sidt [myIdt]
-   354                              <1>     ;movzx eax, al
-   355                              <1>     ;shl rax, 4h     ;Multiply IDT entry number by 16 (Size of IDT entry)
-   356                              <1>     ;add rax, qword [myIdt.base]    
-   357                              <1>     ;xor ebx, ebx
-   358                              <1>     ;mov ebx, dword [rax + 8]    ;Get bits 63...32
-   359                              <1>     ;shl rbx, 10h    ;Push the high dword high
-   360                              <1>     ;mov bx, word [rax + 6]      ;Get bits 31...16
-   361                              <1>     ;shl rbx, 10h    ;Push word 2 into posiiton
-   362                              <1>     ;mov bx, word [rax]          ;Get bits 15...0
-   363                              <1>     ;return
-   364                              <1> myIdt:
-   365 00000354 0000                <1> .limit  dw 0
-   366 00000356 0000000000000000    <1> .base   dq 0
-   366          ------------------  <1>  info: assembly required 1+2+2 passes
+   325 00000314 B800510000          <1>     mov eax, 5100h
+   326 00000319 CD21                <1>     int 21h             ;Get current PSP ptr
+   327 0000031B 4881FB09000000      <1>     cmp rbx, 9          ;If we are being used as a Kernel driver, no msg!
+   328 00000322 740E                <1>     je skipMsg
+   329                              <1> ;Else, print message!
+   330 00000324 488D1513000000      <1>     lea rdx, helloStr   ;Print install string
+   331 0000032B B800090000          <1>     mov eax, 0900h
+   332 00000330 CD21                <1>     int 21h
+   333                              <1> skipMsg:
+   334 00000332 488D0573FFFFFF      <1>     lea rax, init   ;Eject init
+   335 00000339 4989400E            <1>     mov qword [r8 + initReqPkt.endptr], rax
+   336                              <1>     return
+    13 0000033D C3                  <2>  ret
+   337                              <1> 
+   338 0000033E 2D2D2D20496E737461- <1> helloStr    db  "--- Installing MCON Device Driver V"
+   338 00000347 6C6C696E67204D434F- <1>
+   338 00000350 4E2044657669636520- <1>
+   338 00000359 4472697665722056    <1>
+   339 00000361 302E3031202D2D2D    <1>             db  vers+"0",".",rev/10+"0", (rev-rev/10*10)+"0", " ---"
+   340 00000369 101324              <1>             db  10h,13h,"$"
+   341                              <1> 
+   342                              <1> 
+   343                              <1> 
+   344                              <1> installInterrupt:
+   345                              <1> ;Writes the interrupt in the right place in the table
+   346                              <1>     ;al = Interrupt number
+   347                              <1>     ;rdx -> Handler to install
+   348 0000036C 0F010D2D000000      <1>     sidt [myIdt]
+   349 00000373 0FB6C0              <1>     movzx eax, al
+   350 00000376 4892                <1>     xchg rdx, rax
+   351 00000378 48C1E204            <1>     shl rdx, 4h     ;Multiply IDT entry number by 16
+   352 0000037C 4803151F000000      <1>     add rdx, qword [myIdt.base]    
+   353 00000383 668902              <1>     mov word [rdx], ax  ;Get low word into offset 15...0
+   354 00000386 48C1E810            <1>     shr rax, 10h    ;Bring next word low
+   355 0000038A 66894206            <1>     mov word [rdx + 6], ax  ;Get low word into offset 31...16
+   356 0000038E 48C1E810            <1>     shr rax, 10h    ;Bring last dword low
+   357 00000392 894208              <1>     mov dword [rdx + 8], eax
+   358 00000395 C3                  <1>     ret
+   359                              <1> getIntHdlr:
+   360                              <1> ;Gets an interrupt value. 
+   361                              <1> ;Input: al = Interrupt number
+   362                              <1> ;Output: rbx = Interrupt Vector
+   363 00000396 50                  <1>     push rax
+   364 00000397 B802120000          <1>     mov eax, 1202h  ;Get Interrupt handler in rbx
+   365 0000039C CD2F                <1>     int 2Fh
+   366 0000039E 58                  <1>     pop rax
+   367                              <1>     return
+    13 0000039F C3                  <2>  ret
+   368                              <1>     ;sidt [myIdt]
+   369                              <1>     ;movzx eax, al
+   370                              <1>     ;shl rax, 4h     ;Multiply IDT entry number by 16 (Size of IDT entry)
+   371                              <1>     ;add rax, qword [myIdt.base]    
+   372                              <1>     ;xor ebx, ebx
+   373                              <1>     ;mov ebx, dword [rax + 8]    ;Get bits 63...32
+   374                              <1>     ;shl rbx, 10h    ;Push the high dword high
+   375                              <1>     ;mov bx, word [rax + 6]      ;Get bits 31...16
+   376                              <1>     ;shl rbx, 10h    ;Push word 2 into posiiton
+   377                              <1>     ;mov bx, word [rax]          ;Get bits 15...0
+   378                              <1>     ;return
+   379                              <1> myIdt:
+   380 000003A0 0000                <1> .limit  dw 0
+   381 000003A2 0000000000000000    <1> .base   dq 0
+   381          ------------------  <1>  info: assembly required 1+2+2 passes
 
