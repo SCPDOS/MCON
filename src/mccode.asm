@@ -337,7 +337,7 @@ skipMsg:
 
 helloStr    db  "--- Installing MCON Device Driver V"
             db  vers+"0",".",rev/10+"0", (rev-rev/10*10)+"0", " ---"
-            db  10h,13h,"$"
+            db  10,13,"$"
 
 
 
