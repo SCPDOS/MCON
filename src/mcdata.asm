@@ -1,7 +1,7 @@
 
 ;Driver version number
-vers equ 0
-rev  equ 1
+majVers equ 0
+minVers equ 2
 
 conHdr:
     dq -1
@@ -9,8 +9,6 @@ conHdr:
     dq strategy
     dq noOp    ;We don't use the interrupt endpoint.
     db "CON     "
-conBuf  db 0    ;Single byte input buffer
-hlpPtr  dq noOp ;Ptr to the DOS session help interface. Default to NOP
 
 funcTbl:
     dw init - funcTbl       ;Init function
@@ -37,6 +35,12 @@ funcTbl:
 
 funcTblE equ ($ - funcTbl)/2    ;Compute number of entries
 
-oldKbdHdlr  dq 0    ;Ptr to the BIOS IRQ1 handler
-magicKey    dw -1   ;Scancode/ASCII pair to search for. -1 means no search.
-inHdlr      db 0    ;Set if we are in the getchar portion of IRQ1 handler.
+bConBuf     db 0    ;Single byte input buffer
+bSTMode     db -1   ;This value stays -1 whilst we are in singletasking mode
+wMagicKey   dw -1   ;Scancode/ASCII pair to search for. -1 means no search.
+bKeybWait   db 0    ;Set if we are waiting on Int 36h for a keystroke
+
+pOldKbdIntr dq 0    ;Ptr to the Keyboard interrupt 
+pOldKbdHdlr dq 0    ;Ptr to the Keyboard service routine
+pDevHlp     dq noOp ;Ptr to the DOS session help interface. Default to NOP
+pScrIoOk    dq -1   ;Ptr to the DOS variable that is set if screen IO is ok

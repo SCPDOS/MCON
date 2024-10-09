@@ -52,7 +52,7 @@ read:    ;Read Chars
 .cre1:
     cmp ecx, dword [r8 + ioReqPkt.tfrlen]
     je .cre2
-    cmp byte [conBuf], 0   ;Does the buffer contain a zero?
+    cmp byte [bConBuf], 0   ;Does the buffer contain a zero?
     jnz .cre3   ;No, get the buffer value
     xor eax, eax
     int 36h
@@ -63,7 +63,7 @@ read:    ;Read Chars
     stosb
     test al, al ;Was the ascii code stored 0?
     jnz .cre12  ;No, skip storing scancode in buffer
-    mov byte [conBuf], ah  ;Save scancode
+    mov byte [bConBuf], ah  ;Save scancode
 .cre12:
     inc ecx ;Inc chars stored in buffer
     jmp short .cre1
@@ -71,15 +71,15 @@ read:    ;Read Chars
     mov dword [r8 + ioReqPkt.tfrlen], ecx  ;Move num of transferred chars
     return
 .cre3:
-    mov al, byte [conBuf]  ;Get the buffer value
-    mov byte [conBuf], 0   ;Reset the buffer value
+    mov al, byte [bConBuf]  ;Get the buffer value
+    mov byte [bConBuf], 0   ;Reset the buffer value
     jmp short .cre11
 
 ndRead:  ;Non destructive read chars
     mov al, 05h ;Bad request structure length?
     cmp byte [r8 + drvReqHdr.hdrlen], ndInNoWaitPkt_size
     jne errorExit
-    cmp byte [conBuf], 0
+    cmp byte [bConBuf], 0
     jnz .cnr2
     mov ah, 01h     ;Get key if exists
     int 36h
@@ -95,7 +95,7 @@ ndRead:  ;Non destructive read chars
     mov word [r8 + ndInNoWaitPkt.status], drvBsyStatus   ;Set busy bit
     return
 .cnr2:
-    mov al, byte [conBuf]  ;Copy scancode but dont reset it
+    mov al, byte [bConBuf]  ;Copy scancode but dont reset it
     jmp short .cnr0   ;Keystroke is available clearly
 
 inStatus:         ;Get Input Status
@@ -108,7 +108,7 @@ flushInBuf:   ;Flush Input Buffers
     mov al, 05h ;Bad request structure length?
     cmp byte [r8 + drvReqHdr.hdrlen], statusReqPkt_size
     jne errorExit
-    mov byte [conBuf], 0   ;Clear buffer
+    mov byte [bConBuf], 0   ;Clear buffer
 .cfib0:
     mov ah, 01      ;Get buffer status
     int 36h
@@ -136,29 +136,32 @@ write:   ;Write Chars
     return
 ; -------------------- NEW FUNCTIONS -------------------- 
 genIOCTL:
-;Only one function, MScrCap.
+;Only one function, MScrCap. Declares the presence of a multitasker
+; to the driver!
 ;Do all checks to ensure not an accidental call.
-    mov rsi, qword [r8 + ioctlReqPkt.rsival]
-    mov rdi, qword [r8 + ioctlReqPkt.rdival]
     mov rdx, qword [r8 + ioctlReqPkt.ctlptr]
     cmp cx, 0310h   ;Get MScrCap?
     jne .exitBad
-    test rsi, rsi
-    jnz .exitBad
-    test rdi, rdi
-    jnz .exitBad
     cmp word [rdx + mScrCap.wVer], 0100h
     jne .exitBad
     cmp word [rdx + mScrCap.wLen], mScrCap_size
     jne .exitBad
-    ;Here we have verified we are ok! Proceed.
-    ;This IOCTL is equivalent to in MTDOS the CON reporting caps during driver init.
+;Here we have verified we are ok! Proceed.
+;This IOCTL is equivalent to in MTDOS the CON reporting caps during driver init.
     movzx eax, word [rdx + mScrCap.wMagic]
-    mov word [magicKey], ax
+    mov word [wMagicKey], ax
     mov byte [rdx + mScrCap.bScrNum], (maxScr + 1)
     lea rax, mConHlp
-    xchg qword [rdx + mScrCap.qHlpPtr], rax  ;Swap pointers
-    mov qword [hlpPtr], rax   ;Store this as the help pointer
+    xchg qword [rdx + mScrCap.pDevHlp], rax  ;Swap pointers
+    mov qword [pDevHlp], rax   ;Store this as the help pointer
+
+;Now setup the real pointer to the DOSMGR ScrIoOk byte
+    xor eax, eax    ;Get var 0 (ScrIoOk)
+    mov ecx, 1      ;Length 1
+    mov edx, 16     ;Get ScrIoOk Var
+    call qword [pDevHlp]
+    mov qword [pScrIoOk], rax   ;Store the pointer now!
+    mov byte [bSTMode], 0       ;Set we are in a MT env!
     return
 .exitBad:
     mov word [r8 + drvReqHdr.status], drvErrStatus | drvBadCmd
@@ -185,9 +188,9 @@ mConHlp:
     return
 delHlp:
 ;If the Session Manager has to de-install itself, call this 
-; to indicate that the hlpPtr is no longer valid!
+; to indicate that the pDevHlp is no longer valid!
     lea rax, noOp
-    mov qword [hlpPtr], rax
+    mov qword [pDevHlp], rax
     return
 getScreen:
     push rbx
@@ -240,10 +243,10 @@ fastOutput:         ;This CON driver supports Int 29h
     iretq
 ctrlBreak:
 ;CON Int 3Bh handler to detect CTRL+BREAK
-    mov byte [conBuf], 03h    ;Place a ^C in buffer
+    mov byte [bConBuf], 03h    ;Place a ^C in buffer
     iretq
 
-newKeybIntr:        ;New Keyboard Interrupt Hdlr
+keybIntr:        ;New Keyboard Interrupt Hdlr
     push rax        ;Save RAX as a trashed reg
     push rdx
 ;Simulate an IRQ entry to old kbdHldr
@@ -255,35 +258,107 @@ newKeybIntr:        ;New Keyboard Interrupt Hdlr
     pushfq
     mov ax, cs
     push rax
-    call qword [oldKbdHdlr]
+    call qword [pOldKbdIntr]    ;Do the SCP/BIOS kbd handler code!
 
-    test byte [inHdlr], -1      ;If set, we are reentering this. Exit!!
-    jnz .exit
-    cmp word [magicKey], -1     ;If no magic key to check, exit!
-    je .exit
-    mov eax, 0100h  ;Now we NDlook to see what was placed in.
-    int 36h         
-    jz .exit        ;If ZF=ZE, no keystroke available (should never happen)
-    cmp ax, word [magicKey] ;Did we receive the magic key
-    jne .exit
-;Else, we now pull the magic key and signal SM!
-    mov byte [inHdlr], -1   ;Set reentrancy flag!
-;Pull the magic char out of the buffer!
+    mov rdx, rsp
     xor eax, eax
-    int 36h
-;Now pass this information to SM
-    mov edx, eax    ;Pass sc/ASCII pair in edx
-    mov eax, 1      ;Call function 1
-    cli ;Pause interrupts
-    mov byte [inHdlr], 0    ;Clear reentrancy flag!
-    call qword [hlpPtr]     ;Call SM
-    sti
+    mov ax, ss
+    push rax
+    push rdx
+    pushfq
+    mov ax, cs
+    push rax
+    mov eax, 0100h              ;Now read ahead, under our handler
+    call qword [pOldKbdHdlr]    ;Gets the SC/ASCII pair in ax
+    mov edx, 5                  ;ConsInputFiler
+    call qword [pDevHlp]
+    jnz .keepChar
+    ;Else remove the char from the buffer
+    mov rdx, rsp
+    xor eax, eax
+    mov ax, ss
+    push rax
+    push rdx
+    pushfq
+    mov ax, cs
+    push rax
+    xor eax, eax
+    call qword [pOldKbdHdlr]    ;Gets the SC/ASCII pair in ax
+    jmp short .exit
+.keepChar:
+    cli
+    test byte [bKeybWait], -1  
+    jz .exit
+    push rbx
+    push rcx
+    lea rbx, bKeybWait  ;Run all processes with this identifier
+    mov byte [rbx], 0   ;Clear the flag first
+    mov edx, 10  ;ProcRun
+    call qword [pDevHlp]
+    pop rcx
+    pop rbx
 .exit:
     pop rdx
     pop rax
     iretq
 
 
+
+keybHdlr:   ;Int 36h
+    test ah, ah
+    je .readChar
+    cmp ah, 1
+    je .lookahead
+    jmp qword [pOldKbdHdlr]
+.readChar:
+    push rax    ;Push original function number on the stack
+    push rbx
+    push rcx
+    push rdx
+.readChLp:
+    mov rbx, qword [pScrIoOk]
+    test byte [rbx], -1
+    jnz .okToRead
+    xor ecx, ecx
+    mov edx, 9  ;Proc block, non-interruptable
+    call qword [pDevHlp]    ;Use this var as identifier.
+    jmp short .readChLp ;Check again!
+.okToRead:
+;Now we simulate a call into 36h/AH=01h - Get keyboard buffer status
+    cli
+    mov rdx, rsp
+    xor eax, eax
+    mov ax, ss
+    push rax
+    push rdx
+    pushfq
+    mov ax, cs
+    push rax
+    mov eax, 0100h  ;Get the keyb status
+    call qword [pOldKbdHdlr]    ;Interrupts remain set on return
+    jnz .doCharRead
+;If the char isn't there, we gotta pblock until it is.
+    lea rbx, bKeybWait
+    mov byte [rbx], -1
+    or ecx, ecx
+    mov edx, 9  ;Proc block, non-interruptable
+    call qword [pDevHlp]    ;Use this var as identifier.
+    jmp short .readChLp ;Check again with CLI set!
+.doCharRead:
+    pop rdx
+    pop rcx
+    pop rbx
+    pop rax
+.goKbd:
+    jmp qword [pOldKbdHdlr]
+.lookahead:
+    push rbx
+    mov rbx, qword [pScrIoOk]   ;Can we check?
+    test byte [rbx], -1
+    pop rbx
+    jnz .goKbd  ;If we can, do it!
+    and byte [rsp + 2*8], ~1    ;Clear CF of flags
+    iretq
 ;------------------ EJECT POINT ------------------
 
 init:
@@ -296,14 +371,6 @@ init:
     lea rdx, ctrlBreak
     mov eax, 3Bh
     call installInterrupt
-;DO IRQ1
-    mov eax, 0F1h   ;Get IRQ1 handler in rbx
-    call getIntHdlr
-    mov qword [oldKbdHdlr], rbx
-    lea rdx, newKeybIntr
-    mov eax, 0F1h
-    call installInterrupt
-
 .ci0:
     mov ah, 01      ;Get buffer status
     int 36h
@@ -321,6 +388,25 @@ init:
     mov bh, 07h     ;Grey/Black attribs
     mov eax, 0600h  ;Clear whole screen
     int 30h
+;Now get the pointer to the bScrnIoOk variable
+;Now make a fake bScrnIoOk pointer
+    lea rax, bSTMode
+    mov qword [pScrIoOk], rax
+;Now install the replacement keyboard interrupt routines!
+;DO IRQ1
+    mov eax, 0F1h   ;Get IRQ1 handler in rbx
+    call getIntHdlr
+    mov qword [pOldKbdIntr], rbx
+    lea rdx, keybIntr
+    mov eax, 0F1h
+    call installInterrupt
+;DO Int 36h
+    mov eax, 036h   ;Get Int 36h handler in rbx
+    call getIntHdlr
+    mov qword [pOldKbdHdlr], rbx
+    lea rdx, keybHdlr
+    mov eax, 036h
+    call installInterrupt
 
     mov eax, 5100h
     int 21h             ;Get current PSP ptr
@@ -336,8 +422,8 @@ skipMsg:
     return
 
 helloStr    db  "--- Installing MCON Device Driver V"
-            db  vers+"0",".",rev/10+"0", (rev-rev/10*10)+"0", " ---"
-            db  10,13,"$"
+            db  majVers+"0",".",minVers/10+"0"
+            db (minVers-minVers/10*10)+"0", " ---", 10,13,"$"
 
 
 

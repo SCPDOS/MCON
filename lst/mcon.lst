@@ -336,7 +336,7 @@
      5 00000002 ????                <1>     .wLen       dw ?    ;Length of structure (15 bytes)
      6 00000004 ????                <1>     .wMagic     dw ?    ;Magic key combo (scancode/ASCII)
      7 00000006 ??                  <1>     .bScrNum    db ?    ;Number of screens supported by driver
-     8 00000007 ????????????????    <1>     .qHlpPtr    dq ?    ;Pointer to the mCon help routine
+     8 00000007 ????????????????    <1>     .pDevHlp    dq ?    ;Pointer to the mCon help routine
      9                              <1> endstruc
     10                              <1> 
     11                              <1> maxScr  equ 07h ;Screens 0 - 7 (so 8 screens)
@@ -410,451 +410,541 @@
     10                                  %include "./src/mcdata.asm" ;Cannot put this in a separate segment due to reloc issues
      1                              <1> 
      2                              <1> ;Driver version number
-     3                              <1> vers equ 0
-     4                              <1> rev  equ 1
+     3                              <1> majVers equ 0
+     4                              <1> minVers equ 2
      5                              <1> 
      6                              <1> conHdr:
      7 00000000 FFFFFFFFFFFFFFFF    <1>     dq -1
      8 00000008 7380                <1>     dw devDrvChar | devDrvIOCTL | devDrvMulti | devDrvFastOut | devDrvConOut | devDrvConIn
-     9 0000000A [5E00000000000000]  <1>     dq strategy
-    10 00000012 [9D00000000000000]  <1>     dq noOp    ;We don't use the interrupt endpoint.
+     9 0000000A [6F00000000000000]  <1>     dq strategy
+    10 00000012 [AE00000000000000]  <1>     dq noOp    ;We don't use the interrupt endpoint.
     11 0000001A 434F4E2020202020    <1>     db "CON     "
-    12 00000022 00                  <1> conBuf  db 0    ;Single byte input buffer
-    13 00000023 [9D00000000000000]  <1> hlpPtr  dq noOp ;Ptr to the DOS session help interface. Default to NOP
-    14                              <1> 
-    15                              <1> funcTbl:
-    16 0000002B 8102                <1>     dw init - funcTbl       ;Init function
-    17 0000002D 7200                <1>     dw noOp - funcTbl       ;Media Check
-    18 0000002F 7200                <1>     dw noOp - funcTbl       ;Build BPB
-    19 00000031 7300                <1>     dw unkExit - funcTbl    ;IOCTL Input
-    20 00000033 8000                <1>     dw read - funcTbl       ;Read
-    21 00000035 CC00                <1>     dw ndRead - funcTbl     ;Non-destructive read
-    22 00000037 0001                <1>     dw inStatus - funcTbl   ;Input Status
-    23 00000039 0D01                <1>     dw flushInBuf - funcTbl ;Input flush
-    24 0000003B 2D01                <1>     dw write - funcTbl      ;Write
-    25 0000003D 2D01                <1>     dw write - funcTbl      ;Write with verify
-    26 0000003F 7200                <1>     dw noOp - funcTbl       ;Output Status
-    27 00000041 7200                <1>     dw noOp - funcTbl       ;Output Flush
-    28 00000043 7200                <1>     dw noOp - funcTbl       ;IOCTL Output
-    29 00000045 7200                <1>     dw noOp - funcTbl       ;Device Open
-    30 00000047 7200                <1>     dw noOp - funcTbl       ;Device Close
-    31 00000049 7200                <1>     dw noOp - funcTbl       ;Removable Media
-    32 0000004B 7300                <1>     dw unkExit - funcTbl    ;Reserved function
-    33 0000004D 7300                <1>     dw unkExit - funcTbl    ;Reserved function
-    34 0000004F 7300                <1>     dw unkExit - funcTbl    ;Reserved function
-    35                              <1> ; New functions
-    36 00000051 5101                <1>     dw genIOCTL - funcTbl   ;Generic IOCTL
+    12                              <1> 
+    13                              <1> funcTbl:
+    14 00000022 4803                <1>     dw init - funcTbl       ;Init function
+    15 00000024 8C00                <1>     dw noOp - funcTbl       ;Media Check
+    16 00000026 8C00                <1>     dw noOp - funcTbl       ;Build BPB
+    17 00000028 8D00                <1>     dw unkExit - funcTbl    ;IOCTL Input
+    18 0000002A 9A00                <1>     dw read - funcTbl       ;Read
+    19 0000002C E600                <1>     dw ndRead - funcTbl     ;Non-destructive read
+    20 0000002E 1A01                <1>     dw inStatus - funcTbl   ;Input Status
+    21 00000030 2701                <1>     dw flushInBuf - funcTbl ;Input flush
+    22 00000032 4701                <1>     dw write - funcTbl      ;Write
+    23 00000034 4701                <1>     dw write - funcTbl      ;Write with verify
+    24 00000036 8C00                <1>     dw noOp - funcTbl       ;Output Status
+    25 00000038 8C00                <1>     dw noOp - funcTbl       ;Output Flush
+    26 0000003A 8C00                <1>     dw noOp - funcTbl       ;IOCTL Output
+    27 0000003C 8C00                <1>     dw noOp - funcTbl       ;Device Open
+    28 0000003E 8C00                <1>     dw noOp - funcTbl       ;Device Close
+    29 00000040 8C00                <1>     dw noOp - funcTbl       ;Removable Media
+    30 00000042 8D00                <1>     dw unkExit - funcTbl    ;Reserved function
+    31 00000044 8D00                <1>     dw unkExit - funcTbl    ;Reserved function
+    32 00000046 8D00                <1>     dw unkExit - funcTbl    ;Reserved function
+    33                              <1> ; New functions
+    34 00000048 6B01                <1>     dw genIOCTL - funcTbl   ;Generic IOCTL
+    35                              <1> 
+    36                              <1> funcTblE equ ($ - funcTbl)/2    ;Compute number of entries
     37                              <1> 
-    38                              <1> funcTblE equ ($ - funcTbl)/2    ;Compute number of entries
-    39                              <1> 
-    40 00000053 0000000000000000    <1> oldKbdHdlr  dq 0    ;Ptr to the BIOS IRQ1 handler
-    41 0000005B FFFF                <1> magicKey    dw -1   ;Scancode/ASCII pair to search for. -1 means no search.
-    42 0000005D 00                  <1> inHdlr      db 0    ;Set if we are in the getchar portion of IRQ1 handler.
+    38 0000004A 00                  <1> bConBuf     db 0    ;Single byte input buffer
+    39 0000004B FF                  <1> bSTMode     db -1   ;This value stays -1 whilst we are in singletasking mode
+    40 0000004C FFFF                <1> wMagicKey   dw -1   ;Scancode/ASCII pair to search for. -1 means no search.
+    41 0000004E 00                  <1> bKeybWait   db 0    ;Set if we are waiting on Int 36h for a keystroke
+    42                              <1> 
+    43 0000004F 0000000000000000    <1> pOldKbdIntr dq 0    ;Ptr to the Keyboard interrupt 
+    44 00000057 0000000000000000    <1> pOldKbdHdlr dq 0    ;Ptr to the Keyboard service routine
+    45 0000005F [AE00000000000000]  <1> pDevHlp     dq noOp ;Ptr to the DOS session help interface. Default to NOP
+    46 00000067 FFFFFFFFFFFFFFFF    <1> pScrIoOk    dq -1   ;Ptr to the DOS variable that is set if screen IO is ok
     11                                  %include "./src/mccode.asm"
      1                              <1> ;This driver is designed to work in the MDOS environment. 
      2                              <1> 
      3                              <1> strategy:
      4                              <1> ;DOS calls this function with rbx=Ptr to request header.
      5                              <1> ;Rather than saving the 
-     6 0000005E 50                  <1>     push rax
-     7 0000005F 53                  <1>     push rbx
-     8 00000060 51                  <1>     push rcx
-     9 00000061 52                  <1>     push rdx
-    10 00000062 56                  <1>     push rsi
-    11 00000063 57                  <1>     push rdi
-    12 00000064 55                  <1>     push rbp
-    13 00000065 4150                <1>     push r8 ;Use r8 as the static pointer to the request packet!
-    14 00000067 4989D8              <1>     mov r8, rbx 
-    15 0000006A 6641C740030000      <1>     mov word [r8 + drvReqHdr.status], 0    ;Ensure status clear (should be!)
-    16 00000071 410FB64002          <1>     movzx eax, byte [r8 + drvReqHdr.cmdcde]
-    17 00000076 3D14000000          <1>     cmp eax, funcTblE   
-    18 0000007B 7321                <1>     jae short unkExit       ;If cmdcde is past the end of the table, error!
-    19 0000007D 488D1DA7FFFFFF      <1>     lea rbx, funcTbl        ;Else get pointer to function
-    20 00000084 0FB71443            <1>     movzx edx, word [rbx + 2*rax]   
-    21 00000088 4801D3              <1>     add rbx, rdx
-    22 0000008B FFD3                <1>     call rbx        
+     6 0000006F 50                  <1>     push rax
+     7 00000070 53                  <1>     push rbx
+     8 00000071 51                  <1>     push rcx
+     9 00000072 52                  <1>     push rdx
+    10 00000073 56                  <1>     push rsi
+    11 00000074 57                  <1>     push rdi
+    12 00000075 55                  <1>     push rbp
+    13 00000076 4150                <1>     push r8 ;Use r8 as the static pointer to the request packet!
+    14 00000078 4989D8              <1>     mov r8, rbx 
+    15 0000007B 6641C740030000      <1>     mov word [r8 + drvReqHdr.status], 0    ;Ensure status clear (should be!)
+    16 00000082 410FB64002          <1>     movzx eax, byte [r8 + drvReqHdr.cmdcde]
+    17 00000087 3D14000000          <1>     cmp eax, funcTblE   
+    18 0000008C 7321                <1>     jae short unkExit       ;If cmdcde is past the end of the table, error!
+    19 0000008E 488D1D8DFFFFFF      <1>     lea rbx, funcTbl        ;Else get pointer to function
+    20 00000095 0FB71443            <1>     movzx edx, word [rbx + 2*rax]   
+    21 00000099 4801D3              <1>     add rbx, rdx
+    22 0000009C FFD3                <1>     call rbx        
     23                              <1> exit:
-    24 0000008D 66418148030001      <1>     or word [r8 + drvReqHdr.status], drvDonStatus    ;Set done bit!
+    24 0000009E 66418148030001      <1>     or word [r8 + drvReqHdr.status], drvDonStatus    ;Set done bit!
     25                              <1> .err:
-    26 00000094 4158                <1>     pop r8
-    27 00000096 5D                  <1>     pop rbp
-    28 00000097 5F                  <1>     pop rdi
-    29 00000098 5E                  <1>     pop rsi
-    30 00000099 5A                  <1>     pop rdx
-    31 0000009A 59                  <1>     pop rcx
-    32 0000009B 5B                  <1>     pop rbx
-    33 0000009C 58                  <1>     pop rax
+    26 000000A5 4158                <1>     pop r8
+    27 000000A7 5D                  <1>     pop rbp
+    28 000000A8 5F                  <1>     pop rdi
+    29 000000A9 5E                  <1>     pop rsi
+    30 000000AA 5A                  <1>     pop rdx
+    31 000000AB 59                  <1>     pop rcx
+    32 000000AC 5B                  <1>     pop rbx
+    33 000000AD 58                  <1>     pop rax
     34                              <1> noOp:
     35                              <1>     return
-    13 0000009D C3                  <2>  ret
+    13 000000AE C3                  <2>  ret
     36                              <1> 
     37                              <1> unkExit:
-    38 0000009E B003                <1>     mov al, drvBadCmd
+    38 000000AF B003                <1>     mov al, drvBadCmd
     39                              <1> errorExit:
     40                              <1> ;Jump to with al=Standard Error code
-    41 000000A0 66B80080            <1>     mov ax, drvErrStatus    ;Set error bit, and NOT done bit!
-    42 000000A4 6641894003          <1>     mov word [r8 + drvReqHdr.status], ax
-    43 000000A9 EBE9                <1>     jmp short exit.err
+    41 000000B1 66B80080            <1>     mov ax, drvErrStatus    ;Set error bit, and NOT done bit!
+    42 000000B5 6641894003          <1>     mov word [r8 + drvReqHdr.status], ax
+    43 000000BA EBE9                <1>     jmp short exit.err
     44                              <1> 
     45                              <1> read:    ;Read Chars
-    46 000000AB B005                <1>     mov al, 05h ;Bad request structure length?
-    47 000000AD 4180382A            <1>     cmp byte [r8 + drvReqHdr.hdrlen], ioReqPkt_size
-    48 000000B1 75ED                <1>     jne errorExit
+    46 000000BC B005                <1>     mov al, 05h ;Bad request structure length?
+    47 000000BE 4180382A            <1>     cmp byte [r8 + drvReqHdr.hdrlen], ioReqPkt_size
+    48 000000C2 75ED                <1>     jne errorExit
     49                              <1> 
-    50 000000B3 498B780E            <1>     mov rdi, qword [r8 + ioReqPkt.bufptr]  ;Point rdi to caller buffer
-    51 000000B7 31C9                <1>     xor ecx, ecx    ;Zero the char counter
+    50 000000C4 498B780E            <1>     mov rdi, qword [r8 + ioReqPkt.bufptr]  ;Point rdi to caller buffer
+    51 000000C8 31C9                <1>     xor ecx, ecx    ;Zero the char counter
     52                              <1> .cre1:
-    53 000000B9 413B4816            <1>     cmp ecx, dword [r8 + ioReqPkt.tfrlen]
-    54 000000BD 7424                <1>     je .cre2
-    55 000000BF 803D5CFFFFFF00      <1>     cmp byte [conBuf], 0   ;Does the buffer contain a zero?
-    56 000000C6 7520                <1>     jnz .cre3   ;No, get the buffer value
-    57 000000C8 31C0                <1>     xor eax, eax
-    58 000000CA CD36                <1>     int 36h
-    59 000000CC 663D0072            <1>     cmp ax, 7200h   ;CTRL + PrnScr? 
-    60 000000D0 7502                <1>     jne .cre11
-    61 000000D2 B010                <1>     mov al, 10h     ;Store ^P in al!
+    53 000000CA 413B4816            <1>     cmp ecx, dword [r8 + ioReqPkt.tfrlen]
+    54 000000CE 7424                <1>     je .cre2
+    55 000000D0 803D73FFFFFF00      <1>     cmp byte [bConBuf], 0   ;Does the buffer contain a zero?
+    56 000000D7 7520                <1>     jnz .cre3   ;No, get the buffer value
+    57 000000D9 31C0                <1>     xor eax, eax
+    58 000000DB CD36                <1>     int 36h
+    59 000000DD 663D0072            <1>     cmp ax, 7200h   ;CTRL + PrnScr? 
+    60 000000E1 7502                <1>     jne .cre11
+    61 000000E3 B010                <1>     mov al, 10h     ;Store ^P in al!
     62                              <1> .cre11:
-    63 000000D4 AA                  <1>     stosb
-    64 000000D5 84C0                <1>     test al, al ;Was the ascii code stored 0?
-    65 000000D7 7506                <1>     jnz .cre12  ;No, skip storing scancode in buffer
-    66 000000D9 882543FFFFFF        <1>     mov byte [conBuf], ah  ;Save scancode
+    63 000000E5 AA                  <1>     stosb
+    64 000000E6 84C0                <1>     test al, al ;Was the ascii code stored 0?
+    65 000000E8 7506                <1>     jnz .cre12  ;No, skip storing scancode in buffer
+    66 000000EA 88255AFFFFFF        <1>     mov byte [bConBuf], ah  ;Save scancode
     67                              <1> .cre12:
-    68 000000DF FFC1                <1>     inc ecx ;Inc chars stored in buffer
-    69 000000E1 EBD6                <1>     jmp short .cre1
+    68 000000F0 FFC1                <1>     inc ecx ;Inc chars stored in buffer
+    69 000000F2 EBD6                <1>     jmp short .cre1
     70                              <1> .cre2:
-    71 000000E3 41894816            <1>     mov dword [r8 + ioReqPkt.tfrlen], ecx  ;Move num of transferred chars
+    71 000000F4 41894816            <1>     mov dword [r8 + ioReqPkt.tfrlen], ecx  ;Move num of transferred chars
     72                              <1>     return
-    13 000000E7 C3                  <2>  ret
+    13 000000F8 C3                  <2>  ret
     73                              <1> .cre3:
-    74 000000E8 8A0534FFFFFF        <1>     mov al, byte [conBuf]  ;Get the buffer value
-    75 000000EE C6052DFFFFFF00      <1>     mov byte [conBuf], 0   ;Reset the buffer value
-    76 000000F5 EBDD                <1>     jmp short .cre11
+    74 000000F9 8A054BFFFFFF        <1>     mov al, byte [bConBuf]  ;Get the buffer value
+    75 000000FF C60544FFFFFF00      <1>     mov byte [bConBuf], 0   ;Reset the buffer value
+    76 00000106 EBDD                <1>     jmp short .cre11
     77                              <1> 
     78                              <1> ndRead:  ;Non destructive read chars
-    79 000000F7 B005                <1>     mov al, 05h ;Bad request structure length?
-    80 000000F9 4180380E            <1>     cmp byte [r8 + drvReqHdr.hdrlen], ndInNoWaitPkt_size
-    81 000000FD 75A1                <1>     jne errorExit
-    82 000000FF 803D1CFFFFFF00      <1>     cmp byte [conBuf], 0
-    83 00000106 751B                <1>     jnz .cnr2
-    84 00000108 B401                <1>     mov ah, 01h     ;Get key if exists
-    85 0000010A CD36                <1>     int 36h
-    86 0000010C 740D                <1>     jz .cnr1        ;If zero clear => no key, go forwards
+    79 00000108 B005                <1>     mov al, 05h ;Bad request structure length?
+    80 0000010A 4180380E            <1>     cmp byte [r8 + drvReqHdr.hdrlen], ndInNoWaitPkt_size
+    81 0000010E 75A1                <1>     jne errorExit
+    82 00000110 803D33FFFFFF00      <1>     cmp byte [bConBuf], 0
+    83 00000117 751B                <1>     jnz .cnr2
+    84 00000119 B401                <1>     mov ah, 01h     ;Get key if exists
+    85 0000011B CD36                <1>     int 36h
+    86 0000011D 740D                <1>     jz .cnr1        ;If zero clear => no key, go forwards
     87                              <1>     ;Keystroke available
-    88 0000010E 663D0072            <1>     cmp ax, 7200h   ;CTRL + PrnScr?
-    89 00000112 7502                <1>     jne .cnr0
-    90 00000114 B010                <1>     mov al, 10h     ;Report ^P
+    88 0000011F 663D0072            <1>     cmp ax, 7200h   ;CTRL + PrnScr?
+    89 00000123 7502                <1>     jne .cnr0
+    90 00000125 B010                <1>     mov al, 10h     ;Report ^P
     91                              <1> .cnr0:
-    92 00000116 4188400D            <1>     mov byte [r8 + ndInNoWaitPkt.retbyt], al   ;Move char in al
+    92 00000127 4188400D            <1>     mov byte [r8 + ndInNoWaitPkt.retbyt], al   ;Move char in al
     93                              <1>     return
-    13 0000011A C3                  <2>  ret
+    13 0000012B C3                  <2>  ret
     94                              <1> .cnr1: ;No keystroke available
-    95 0000011B 6641C740030002      <1>     mov word [r8 + ndInNoWaitPkt.status], drvBsyStatus   ;Set busy bit
+    95 0000012C 6641C740030002      <1>     mov word [r8 + ndInNoWaitPkt.status], drvBsyStatus   ;Set busy bit
     96                              <1>     return
-    13 00000122 C3                  <2>  ret
+    13 00000133 C3                  <2>  ret
     97                              <1> .cnr2:
-    98 00000123 8A05F9FEFFFF        <1>     mov al, byte [conBuf]  ;Copy scancode but dont reset it
-    99 00000129 EBEB                <1>     jmp short .cnr0   ;Keystroke is available clearly
+    98 00000134 8A0510FFFFFF        <1>     mov al, byte [bConBuf]  ;Copy scancode but dont reset it
+    99 0000013A EBEB                <1>     jmp short .cnr0   ;Keystroke is available clearly
    100                              <1> 
    101                              <1> inStatus:         ;Get Input Status
-   102 0000012B B005                <1>     mov al, 05h ;Bad request structure length?
-   103 0000012D 4180380D            <1>     cmp byte [r8 + drvReqHdr.hdrlen], statusReqPkt_size
-   104 00000131 0F8569FFFFFF        <1>     jne errorExit
+   102 0000013C B005                <1>     mov al, 05h ;Bad request structure length?
+   103 0000013E 4180380D            <1>     cmp byte [r8 + drvReqHdr.hdrlen], statusReqPkt_size
+   104 00000142 0F8569FFFFFF        <1>     jne errorExit
    105                              <1>     return ;Exit, device ready
-    13 00000137 C3                  <2>  ret
+    13 00000148 C3                  <2>  ret
    106                              <1> 
    107                              <1> flushInBuf:   ;Flush Input Buffers
-   108 00000138 B005                <1>     mov al, 05h ;Bad request structure length?
-   109 0000013A 4180380D            <1>     cmp byte [r8 + drvReqHdr.hdrlen], statusReqPkt_size
-   110 0000013E 0F855CFFFFFF        <1>     jne errorExit
-   111 00000144 C605D7FEFFFF00      <1>     mov byte [conBuf], 0   ;Clear buffer
+   108 00000149 B005                <1>     mov al, 05h ;Bad request structure length?
+   109 0000014B 4180380D            <1>     cmp byte [r8 + drvReqHdr.hdrlen], statusReqPkt_size
+   110 0000014F 0F855CFFFFFF        <1>     jne errorExit
+   111 00000155 C605EEFEFFFF00      <1>     mov byte [bConBuf], 0   ;Clear buffer
    112                              <1> .cfib0:
-   113 0000014B B401                <1>     mov ah, 01      ;Get buffer status
-   114 0000014D CD36                <1>     int 36h
+   113 0000015C B401                <1>     mov ah, 01      ;Get buffer status
+   114 0000015E CD36                <1>     int 36h
    115                              <1>     retz            ;If zero clear => no more keys to read
     23                              <2> cret z
-    17 0000014F 7501                <3>  j%-1 short %%a
+    17 00000160 7501                <3>  j%-1 short %%a
     18                              <3>  return
-    13 00000151 C3                  <4>  ret
+    13 00000162 C3                  <4>  ret
     19                              <3> %%a:
-   116 00000152 30E4                <1>     xor ah, ah
-   117 00000154 CD36                <1>     int 36h ;Read key to flush from buffer
-   118 00000156 EBF3                <1>     jmp short .cfib0
+   116 00000163 30E4                <1>     xor ah, ah
+   117 00000165 CD36                <1>     int 36h ;Read key to flush from buffer
+   118 00000167 EBF3                <1>     jmp short .cfib0
    119                              <1> 
    120                              <1> write:   ;Write Chars
-   121 00000158 B005                <1>     mov al, 05h ;Bad request structure length?
-   122 0000015A 4180382A            <1>     cmp byte [r8 + drvReqHdr.hdrlen], ioReqPkt_size
-   123 0000015E 0F853CFFFFFF        <1>     jne errorExit
+   121 00000169 B005                <1>     mov al, 05h ;Bad request structure length?
+   122 0000016B 4180382A            <1>     cmp byte [r8 + drvReqHdr.hdrlen], ioReqPkt_size
+   123 0000016F 0F853CFFFFFF        <1>     jne errorExit
    124                              <1> 
-   125 00000164 498B700E            <1>     mov rsi, qword [r8 + ioReqPkt.bufptr] ;Point rsi to caller buffer 
-   126 00000168 31C9                <1>     xor ecx, ecx    ;Zero the char counter
+   125 00000175 498B700E            <1>     mov rsi, qword [r8 + ioReqPkt.bufptr] ;Point rsi to caller buffer 
+   126 00000179 31C9                <1>     xor ecx, ecx    ;Zero the char counter
    127                              <1> .cw1: 
-   128 0000016A 413B4816            <1>     cmp ecx, dword [r8 + ioReqPkt.tfrlen]
-   129 0000016E 7407                <1>     je .cw2
-   130 00000170 AC                  <1>     lodsb   ;Get char into al, and inc rsi
-   131 00000171 CD29                <1>     int 29h ;Fast print char
-   132 00000173 FFC1                <1>     inc ecx
-   133 00000175 EBF3                <1>     jmp short .cw1 ;keep printing until all chars printed
+   128 0000017B 413B4816            <1>     cmp ecx, dword [r8 + ioReqPkt.tfrlen]
+   129 0000017F 7407                <1>     je .cw2
+   130 00000181 AC                  <1>     lodsb   ;Get char into al, and inc rsi
+   131 00000182 CD29                <1>     int 29h ;Fast print char
+   132 00000184 FFC1                <1>     inc ecx
+   133 00000186 EBF3                <1>     jmp short .cw1 ;keep printing until all chars printed
    134                              <1> .cw2:
-   135 00000177 41894816            <1>     mov dword [r8 + ioReqPkt.tfrlen], ecx  ;Move num of transferred chars
+   135 00000188 41894816            <1>     mov dword [r8 + ioReqPkt.tfrlen], ecx  ;Move num of transferred chars
    136                              <1>     return
-    13 0000017B C3                  <2>  ret
+    13 0000018C C3                  <2>  ret
    137                              <1> ; -------------------- NEW FUNCTIONS -------------------- 
    138                              <1> genIOCTL:
-   139                              <1> ;Only one function, MScrCap.
-   140                              <1> ;Do all checks to ensure not an accidental call.
-   141 0000017C 498B700F            <1>     mov rsi, qword [r8 + ioctlReqPkt.rsival]
-   142 00000180 498B7817            <1>     mov rdi, qword [r8 + ioctlReqPkt.rdival]
-   143 00000184 498B501F            <1>     mov rdx, qword [r8 + ioctlReqPkt.ctlptr]
-   144 00000188 6681F91003          <1>     cmp cx, 0310h   ;Get MScrCap?
-   145 0000018D 753B                <1>     jne .exitBad
-   146 0000018F 4885F6              <1>     test rsi, rsi
-   147 00000192 7536                <1>     jnz .exitBad
-   148 00000194 4885FF              <1>     test rdi, rdi
-   149 00000197 7531                <1>     jnz .exitBad
-   150 00000199 66813A0001          <1>     cmp word [rdx + mScrCap.wVer], 0100h
-   151 0000019E 752A                <1>     jne .exitBad
-   152 000001A0 66817A020F00        <1>     cmp word [rdx + mScrCap.wLen], mScrCap_size
-   153 000001A6 7522                <1>     jne .exitBad
-   154                              <1>     ;Here we have verified we are ok! Proceed.
-   155                              <1>     ;This IOCTL is equivalent to in MTDOS the CON reporting caps during driver init.
-   156 000001A8 0FB74204            <1>     movzx eax, word [rdx + mScrCap.wMagic]
-   157 000001AC 668905A8FEFFFF      <1>     mov word [magicKey], ax
-   158 000001B3 C6420608            <1>     mov byte [rdx + mScrCap.bScrNum], (maxScr + 1)
-   159 000001B7 488D0515000000      <1>     lea rax, mConHlp
-   160 000001BE 48874207            <1>     xchg qword [rdx + mScrCap.qHlpPtr], rax  ;Swap pointers
-   161 000001C2 4889055AFEFFFF      <1>     mov qword [hlpPtr], rax   ;Store this as the help pointer
-   162                              <1>     return
-    13 000001C9 C3                  <2>  ret
-   163                              <1> .exitBad:
-   164 000001CA 6641C740030380      <1>     mov word [r8 + drvReqHdr.status], drvErrStatus | drvBadCmd
-   165 000001D1 F9                  <1>     stc
-   166                              <1>     return
-    13 000001D2 C3                  <2>  ret
-   167                              <1> ;-------------------------------------------
-   168                              <1> ;       mConHlp dispatch and routines
-   169                              <1> ;-------------------------------------------
-   170                              <1> 
-   171                              <1> mConHlp:
-   172                              <1> ;AL = 0: Get current screen number
-   173                              <1> ;AL = 1: Set new screen number
-   174                              <1> ;AL = 2: Reset the screen (CLS)
-   175                              <1> ;Al = 3: Cancel help pointer support
-   176 000001D3 85C0                <1>     test eax, eax
-   177 000001D5 741D                <1>     jz getScreen
-   178 000001D7 FFC8                <1>     dec eax
-   179 000001D9 7426                <1>     jz swapScreen
-   180 000001DB FFC8                <1>     dec eax
-   181 000001DD 7436                <1>     jz resetScreen
-   182 000001DF FFC8                <1>     dec eax
-   183 000001E1 7402                <1>     jz delHlp
-   184 000001E3 F9                  <1>     stc
-   185                              <1>     return
-    13 000001E4 C3                  <2>  ret
-   186                              <1> delHlp:
-   187                              <1> ;If the Session Manager has to de-install itself, call this 
-   188                              <1> ; to indicate that the hlpPtr is no longer valid!
-   189 000001E5 488D05B1FEFFFF      <1>     lea rax, noOp
-   190 000001EC 48890530FEFFFF      <1>     mov qword [hlpPtr], rax
-   191                              <1>     return
-    13 000001F3 C3                  <2>  ret
-   192                              <1> getScreen:
-   193 000001F4 53                  <1>     push rbx
-   194 000001F5 B8000F0000          <1>     mov eax, 0F00h
-   195 000001FA CD30                <1>     int 30h
-   196 000001FC 0FB6C7              <1>     movzx eax, bh
-   197 000001FF 5B                  <1>     pop rbx
-   198                              <1>     return
-    13 00000200 C3                  <2>  ret
-   199                              <1> swapScreen:
-   200                              <1> ;If the screen number is above the max screen number we return error!
-   201                              <1> ;This routine is signalled by the task swapping routine.
-   202 00000201 0FB6C3              <1>     movzx eax, bl ;Get the screen number
-   203 00000204 3D07000000          <1>     cmp eax, maxScr
-   204 00000209 7708                <1>     ja .err
-   205 0000020B 0D00050000          <1>     or eax, 0500h   
-   206 00000210 CD30                <1>     int 30h         ;Swap active page on the VGA!
-   207                              <1>     return
+   139                              <1> ;Only one function, MScrCap. Declares the presence of a multitasker
+   140                              <1> ; to the driver!
+   141                              <1> ;Do all checks to ensure not an accidental call.
+   142 0000018D 498B501F            <1>     mov rdx, qword [r8 + ioctlReqPkt.ctlptr]
+   143 00000191 6681F91003          <1>     cmp cx, 0310h   ;Get MScrCap?
+   144 00000196 7551                <1>     jne .exitBad
+   145 00000198 66813A0001          <1>     cmp word [rdx + mScrCap.wVer], 0100h
+   146 0000019D 754A                <1>     jne .exitBad
+   147 0000019F 66817A020F00        <1>     cmp word [rdx + mScrCap.wLen], mScrCap_size
+   148 000001A5 7542                <1>     jne .exitBad
+   149                              <1> ;Here we have verified we are ok! Proceed.
+   150                              <1> ;This IOCTL is equivalent to in MTDOS the CON reporting caps during driver init.
+   151 000001A7 0FB74204            <1>     movzx eax, word [rdx + mScrCap.wMagic]
+   152 000001AB 6689059AFEFFFF      <1>     mov word [wMagicKey], ax
+   153 000001B2 C6420608            <1>     mov byte [rdx + mScrCap.bScrNum], (maxScr + 1)
+   154 000001B6 488D0535000000      <1>     lea rax, mConHlp
+   155 000001BD 48874207            <1>     xchg qword [rdx + mScrCap.pDevHlp], rax  ;Swap pointers
+   156 000001C1 48890597FEFFFF      <1>     mov qword [pDevHlp], rax   ;Store this as the help pointer
+   157                              <1> 
+   158                              <1> ;Now setup the real pointer to the DOSMGR ScrIoOk byte
+   159 000001C8 31C0                <1>     xor eax, eax    ;Get var 0 (ScrIoOk)
+   160 000001CA B901000000          <1>     mov ecx, 1      ;Length 1
+   161 000001CF BA10000000          <1>     mov edx, 16     ;Get ScrIoOk Var
+   162 000001D4 FF1585FEFFFF        <1>     call qword [pDevHlp]
+   163 000001DA 48890586FEFFFF      <1>     mov qword [pScrIoOk], rax   ;Store the pointer now!
+   164 000001E1 C60563FEFFFF00      <1>     mov byte [bSTMode], 0       ;Set we are in a MT env!
+   165                              <1>     return
+    13 000001E8 C3                  <2>  ret
+   166                              <1> .exitBad:
+   167 000001E9 6641C740030380      <1>     mov word [r8 + drvReqHdr.status], drvErrStatus | drvBadCmd
+   168 000001F0 F9                  <1>     stc
+   169                              <1>     return
+    13 000001F1 C3                  <2>  ret
+   170                              <1> ;-------------------------------------------
+   171                              <1> ;       mConHlp dispatch and routines
+   172                              <1> ;-------------------------------------------
+   173                              <1> 
+   174                              <1> mConHlp:
+   175                              <1> ;AL = 0: Get current screen number
+   176                              <1> ;AL = 1: Set new screen number
+   177                              <1> ;AL = 2: Reset the screen (CLS)
+   178                              <1> ;Al = 3: Cancel help pointer support
+   179 000001F2 85C0                <1>     test eax, eax
+   180 000001F4 741D                <1>     jz getScreen
+   181 000001F6 FFC8                <1>     dec eax
+   182 000001F8 7426                <1>     jz swapScreen
+   183 000001FA FFC8                <1>     dec eax
+   184 000001FC 7436                <1>     jz resetScreen
+   185 000001FE FFC8                <1>     dec eax
+   186 00000200 7402                <1>     jz delHlp
+   187 00000202 F9                  <1>     stc
+   188                              <1>     return
+    13 00000203 C3                  <2>  ret
+   189                              <1> delHlp:
+   190                              <1> ;If the Session Manager has to de-install itself, call this 
+   191                              <1> ; to indicate that the pDevHlp is no longer valid!
+   192 00000204 488D05A3FEFFFF      <1>     lea rax, noOp
+   193 0000020B 4889054DFEFFFF      <1>     mov qword [pDevHlp], rax
+   194                              <1>     return
     13 00000212 C3                  <2>  ret
-   208                              <1> .err:
-   209 00000213 F9                  <1>     stc
+   195                              <1> getScreen:
+   196 00000213 53                  <1>     push rbx
+   197 00000214 B8000F0000          <1>     mov eax, 0F00h
+   198 00000219 CD30                <1>     int 30h
+   199 0000021B 0FB6C7              <1>     movzx eax, bh
+   200 0000021E 5B                  <1>     pop rbx
+   201                              <1>     return
+    13 0000021F C3                  <2>  ret
+   202                              <1> swapScreen:
+   203                              <1> ;If the screen number is above the max screen number we return error!
+   204                              <1> ;This routine is signalled by the task swapping routine.
+   205 00000220 0FB6C3              <1>     movzx eax, bl ;Get the screen number
+   206 00000223 3D07000000          <1>     cmp eax, maxScr
+   207 00000228 7708                <1>     ja .err
+   208 0000022A 0D00050000          <1>     or eax, 0500h   
+   209 0000022F CD30                <1>     int 30h         ;Swap active page on the VGA!
    210                              <1>     return
-    13 00000214 C3                  <2>  ret
-   211                              <1> resetScreen:
-   212                              <1> ;Resets the currently active screen!
-   213 00000215 B40B                <1>     mov ah, 0Bh  ; Set overscan to black (when Graphics becomes supported)
-   214 00000217 31DB                <1>     xor ebx, ebx
-   215 00000219 CD30                <1>     int 30h
-   216 0000021B B40F                <1>     mov ah, 0Fh ;Get screen mode
-   217 0000021D CD30                <1>     int 30h
-   218 0000021F 53                  <1>     push rbx    ;Save the screen number on stack
-   219 00000220 0FB6D4              <1>     movzx edx, ah   ;Get number of columns in dl
-   220 00000223 FECA                <1>     dec dl
-   221 00000225 B619                <1>     mov dh, 25  ;Number of rows is standard
-   222 00000227 31C0                <1>     xor eax, eax
-   223 00000229 89C1                <1>     mov ecx, eax
-   224 0000022B B707                <1>     mov bh, 7   ;Screen attributes
-   225 0000022D B406                <1>     mov ah, 6   ;Scroll
-   226 0000022F CD30                <1>     int 30h
-   227 00000231 31D2                <1>     xor edx, edx    ;Set cursor coordinates to top left of screen
-   228 00000233 5B                  <1>     pop rbx     ;Get back the screen number
-   229 00000234 B402                <1>     mov ah, 2
-   230 00000236 CD30                <1>     int 30h
-   231                              <1>     return
-    13 00000238 C3                  <2>  ret
-   232                              <1>     
-   233                              <1> ;------------- Driver built-in Interrupt Routines -------------
-   234                              <1> fastOutput:         ;This CON driver supports Int 29h
-   235                              <1> ;Called with char to transfer in al
-   236 00000239 50                  <1>     push rax
-   237 0000023A B40E                <1>     mov ah, 0Eh
-   238 0000023C CD30                <1>     int 30h
-   239 0000023E 58                  <1>     pop rax
-   240 0000023F 48CF                <1>     iretq
-   241                              <1> ctrlBreak:
-   242                              <1> ;CON Int 3Bh handler to detect CTRL+BREAK
-   243 00000241 C605DAFDFFFF03      <1>     mov byte [conBuf], 03h    ;Place a ^C in buffer
-   244 00000248 48CF                <1>     iretq
-   245                              <1> 
-   246                              <1> newKeybIntr:        ;New Keyboard Interrupt Hdlr
-   247 0000024A 50                  <1>     push rax        ;Save RAX as a trashed reg
-   248 0000024B 52                  <1>     push rdx
-   249                              <1> ;Simulate an IRQ entry to old kbdHldr
-   250 0000024C 4889E2              <1>     mov rdx, rsp
-   251 0000024F 31C0                <1>     xor eax, eax
-   252 00000251 668CD0              <1>     mov ax, ss
-   253 00000254 50                  <1>     push rax
-   254 00000255 52                  <1>     push rdx
-   255 00000256 9C                  <1>     pushfq
-   256 00000257 668CC8              <1>     mov ax, cs
-   257 0000025A 50                  <1>     push rax
-   258 0000025B FF15F2FDFFFF        <1>     call qword [oldKbdHdlr]
-   259                              <1> 
-   260 00000261 F605F5FDFFFFFF      <1>     test byte [inHdlr], -1      ;If set, we are reentering this. Exit!!
-   261 00000268 753E                <1>     jnz .exit
-   262 0000026A 66813DE8FDFFFFFFFF  <1>     cmp word [magicKey], -1     ;If no magic key to check, exit!
-   263 00000273 7433                <1>     je .exit
-   264 00000275 B800010000          <1>     mov eax, 0100h  ;Now we NDlook to see what was placed in.
-   265 0000027A CD36                <1>     int 36h         
-   266 0000027C 742A                <1>     jz .exit        ;If ZF=ZE, no keystroke available (should never happen)
-   267 0000027E 663B05D6FDFFFF      <1>     cmp ax, word [magicKey] ;Did we receive the magic key
-   268 00000285 7521                <1>     jne .exit
-   269                              <1> ;Else, we now pull the magic key and signal SM!
-   270 00000287 C605CFFDFFFFFF      <1>     mov byte [inHdlr], -1   ;Set reentrancy flag!
-   271                              <1> ;Pull the magic char out of the buffer!
-   272 0000028E 31C0                <1>     xor eax, eax
-   273 00000290 CD36                <1>     int 36h
-   274                              <1> ;Now pass this information to SM
-   275 00000292 89C2                <1>     mov edx, eax    ;Pass sc/ASCII pair in edx
-   276 00000294 B801000000          <1>     mov eax, 1      ;Call function 1
-   277 00000299 FA                  <1>     cli ;Pause interrupts
-   278 0000029A C605BCFDFFFF00      <1>     mov byte [inHdlr], 0    ;Clear reentrancy flag!
-   279 000002A1 FF157CFDFFFF        <1>     call qword [hlpPtr]     ;Call SM
-   280 000002A7 FB                  <1>     sti
-   281                              <1> .exit:
-   282 000002A8 5A                  <1>     pop rdx
-   283 000002A9 58                  <1>     pop rax
-   284 000002AA 48CF                <1>     iretq
-   285                              <1> 
-   286                              <1> 
-   287                              <1> ;------------------ EJECT POINT ------------------
-   288                              <1> 
-   289                              <1> init:
-   290                              <1> ;Start by hooking int 3Bh, int 29h and 0F1h (IRQ1) as part of the CON driver
-   291                              <1> ;DO FASTOUT
-   292 000002AC 488D1586FFFFFF      <1>     lea rdx, fastOutput
-   293 000002B3 B829000000          <1>     mov eax, 29h
-   294 000002B8 E8AF000000          <1>     call installInterrupt
-   295                              <1> ;DO CTRL+BREAK
-   296 000002BD 488D157DFFFFFF      <1>     lea rdx, ctrlBreak
-   297 000002C4 B83B000000          <1>     mov eax, 3Bh
-   298 000002C9 E89E000000          <1>     call installInterrupt
-   299                              <1> ;DO IRQ1
-   300 000002CE B8F1000000          <1>     mov eax, 0F1h   ;Get IRQ1 handler in rbx
-   301 000002D3 E8BE000000          <1>     call getIntHdlr
-   302 000002D8 48891D74FDFFFF      <1>     mov qword [oldKbdHdlr], rbx
-   303 000002DF 488D1564FFFFFF      <1>     lea rdx, newKeybIntr
-   304 000002E6 B8F1000000          <1>     mov eax, 0F1h
-   305 000002EB E87C000000          <1>     call installInterrupt
+    13 00000231 C3                  <2>  ret
+   211                              <1> .err:
+   212 00000232 F9                  <1>     stc
+   213                              <1>     return
+    13 00000233 C3                  <2>  ret
+   214                              <1> resetScreen:
+   215                              <1> ;Resets the currently active screen!
+   216 00000234 B40B                <1>     mov ah, 0Bh  ; Set overscan to black (when Graphics becomes supported)
+   217 00000236 31DB                <1>     xor ebx, ebx
+   218 00000238 CD30                <1>     int 30h
+   219 0000023A B40F                <1>     mov ah, 0Fh ;Get screen mode
+   220 0000023C CD30                <1>     int 30h
+   221 0000023E 53                  <1>     push rbx    ;Save the screen number on stack
+   222 0000023F 0FB6D4              <1>     movzx edx, ah   ;Get number of columns in dl
+   223 00000242 FECA                <1>     dec dl
+   224 00000244 B619                <1>     mov dh, 25  ;Number of rows is standard
+   225 00000246 31C0                <1>     xor eax, eax
+   226 00000248 89C1                <1>     mov ecx, eax
+   227 0000024A B707                <1>     mov bh, 7   ;Screen attributes
+   228 0000024C B406                <1>     mov ah, 6   ;Scroll
+   229 0000024E CD30                <1>     int 30h
+   230 00000250 31D2                <1>     xor edx, edx    ;Set cursor coordinates to top left of screen
+   231 00000252 5B                  <1>     pop rbx     ;Get back the screen number
+   232 00000253 B402                <1>     mov ah, 2
+   233 00000255 CD30                <1>     int 30h
+   234                              <1>     return
+    13 00000257 C3                  <2>  ret
+   235                              <1>     
+   236                              <1> ;------------- Driver built-in Interrupt Routines -------------
+   237                              <1> fastOutput:         ;This CON driver supports Int 29h
+   238                              <1> ;Called with char to transfer in al
+   239 00000258 50                  <1>     push rax
+   240 00000259 B40E                <1>     mov ah, 0Eh
+   241 0000025B CD30                <1>     int 30h
+   242 0000025D 58                  <1>     pop rax
+   243 0000025E 48CF                <1>     iretq
+   244                              <1> ctrlBreak:
+   245                              <1> ;CON Int 3Bh handler to detect CTRL+BREAK
+   246 00000260 C605E3FDFFFF03      <1>     mov byte [bConBuf], 03h    ;Place a ^C in buffer
+   247 00000267 48CF                <1>     iretq
+   248                              <1> 
+   249                              <1> keybIntr:        ;New Keyboard Interrupt Hdlr
+   250 00000269 50                  <1>     push rax        ;Save RAX as a trashed reg
+   251 0000026A 52                  <1>     push rdx
+   252                              <1> ;Simulate an IRQ entry to old kbdHldr
+   253 0000026B 4889E2              <1>     mov rdx, rsp
+   254 0000026E 31C0                <1>     xor eax, eax
+   255 00000270 668CD0              <1>     mov ax, ss
+   256 00000273 50                  <1>     push rax
+   257 00000274 52                  <1>     push rdx
+   258 00000275 9C                  <1>     pushfq
+   259 00000276 668CC8              <1>     mov ax, cs
+   260 00000279 50                  <1>     push rax
+   261 0000027A FF15CFFDFFFF        <1>     call qword [pOldKbdIntr]    ;Do the SCP/BIOS kbd handler code!
+   262                              <1> 
+   263 00000280 4889E2              <1>     mov rdx, rsp
+   264 00000283 31C0                <1>     xor eax, eax
+   265 00000285 668CD0              <1>     mov ax, ss
+   266 00000288 50                  <1>     push rax
+   267 00000289 52                  <1>     push rdx
+   268 0000028A 9C                  <1>     pushfq
+   269 0000028B 668CC8              <1>     mov ax, cs
+   270 0000028E 50                  <1>     push rax
+   271 0000028F B800010000          <1>     mov eax, 0100h              ;Now read ahead, under our handler
+   272 00000294 FF15BDFDFFFF        <1>     call qword [pOldKbdHdlr]    ;Gets the SC/ASCII pair in ax
+   273 0000029A BA05000000          <1>     mov edx, 5                  ;ConsInputFiler
+   274 0000029F FF15BAFDFFFF        <1>     call qword [pDevHlp]
+   275 000002A5 7519                <1>     jnz .keepChar
+   276                              <1>     ;Else remove the char from the buffer
+   277 000002A7 4889E2              <1>     mov rdx, rsp
+   278 000002AA 31C0                <1>     xor eax, eax
+   279 000002AC 668CD0              <1>     mov ax, ss
+   280 000002AF 50                  <1>     push rax
+   281 000002B0 52                  <1>     push rdx
+   282 000002B1 9C                  <1>     pushfq
+   283 000002B2 668CC8              <1>     mov ax, cs
+   284 000002B5 50                  <1>     push rax
+   285 000002B6 31C0                <1>     xor eax, eax
+   286 000002B8 FF1599FDFFFF        <1>     call qword [pOldKbdHdlr]    ;Gets the SC/ASCII pair in ax
+   287 000002BE EB23                <1>     jmp short .exit
+   288                              <1> .keepChar:
+   289 000002C0 FA                  <1>     cli
+   290 000002C1 F60586FDFFFFFF      <1>     test byte [bKeybWait], -1  
+   291 000002C8 7419                <1>     jz .exit
+   292 000002CA 53                  <1>     push rbx
+   293 000002CB 51                  <1>     push rcx
+   294 000002CC 488D1D7BFDFFFF      <1>     lea rbx, bKeybWait  ;Run all processes with this identifier
+   295 000002D3 C60300              <1>     mov byte [rbx], 0   ;Clear the flag first
+   296 000002D6 BA0A000000          <1>     mov edx, 10  ;ProcRun
+   297 000002DB FF157EFDFFFF        <1>     call qword [pDevHlp]
+   298 000002E1 59                  <1>     pop rcx
+   299 000002E2 5B                  <1>     pop rbx
+   300                              <1> .exit:
+   301 000002E3 5A                  <1>     pop rdx
+   302 000002E4 58                  <1>     pop rax
+   303 000002E5 48CF                <1>     iretq
+   304                              <1> 
+   305                              <1> 
    306                              <1> 
-   307                              <1> .ci0:
-   308 000002F0 B401                <1>     mov ah, 01      ;Get buffer status
-   309 000002F2 CD36                <1>     int 36h
-   310 000002F4 7406                <1>     jz .ci1      ;If zero clear => no more keys to read
-   311 000002F6 30E4                <1>     xor ah, ah
-   312 000002F8 CD36                <1>     int 36h ;Read key to flush from buffer
-   313 000002FA EBF4                <1>     jmp short .ci0
-   314                              <1> .ci1:
-   315 000002FC B800050000          <1>     mov eax, 0500h  ;Set page zero as the default page
-   316 00000301 CD30                <1>     int 30h
-   317 00000303 B402                <1>     mov ah, 02h
-   318 00000305 31D2                <1>     xor edx, edx    ;Set screen cursor to top right corner
-   319 00000307 88D7                <1>     mov bh, dl      ;Set cursor for page 0
-   320 00000309 CD30                <1>     int 30h
-   321 0000030B B707                <1>     mov bh, 07h     ;Grey/Black attribs
-   322 0000030D B800060000          <1>     mov eax, 0600h  ;Clear whole screen
-   323 00000312 CD30                <1>     int 30h
-   324                              <1> 
-   325 00000314 B800510000          <1>     mov eax, 5100h
-   326 00000319 CD21                <1>     int 21h             ;Get current PSP ptr
-   327 0000031B 4881FB09000000      <1>     cmp rbx, 9          ;If we are being used as a Kernel driver, no msg!
-   328 00000322 740E                <1>     je skipMsg
-   329                              <1> ;Else, print message!
-   330 00000324 488D1513000000      <1>     lea rdx, helloStr   ;Print install string
-   331 0000032B B800090000          <1>     mov eax, 0900h
-   332 00000330 CD21                <1>     int 21h
-   333                              <1> skipMsg:
-   334 00000332 488D0573FFFFFF      <1>     lea rax, init   ;Eject init
-   335 00000339 4989400E            <1>     mov qword [r8 + initReqPkt.endptr], rax
-   336                              <1>     return
-    13 0000033D C3                  <2>  ret
-   337                              <1> 
-   338 0000033E 2D2D2D20496E737461- <1> helloStr    db  "--- Installing MCON Device Driver V"
-   338 00000347 6C6C696E67204D434F- <1>
-   338 00000350 4E2044657669636520- <1>
-   338 00000359 4472697665722056    <1>
-   339 00000361 302E3031202D2D2D    <1>             db  vers+"0",".",rev/10+"0", (rev-rev/10*10)+"0", " ---"
-   340 00000369 0A0D24              <1>             db  10,13,"$"
-   341                              <1> 
-   342                              <1> 
-   343                              <1> 
-   344                              <1> installInterrupt:
-   345                              <1> ;Writes the interrupt in the right place in the table
-   346                              <1>     ;al = Interrupt number
-   347                              <1>     ;rdx -> Handler to install
-   348 0000036C 0F010D2D000000      <1>     sidt [myIdt]
-   349 00000373 0FB6C0              <1>     movzx eax, al
-   350 00000376 4892                <1>     xchg rdx, rax
-   351 00000378 48C1E204            <1>     shl rdx, 4h     ;Multiply IDT entry number by 16
-   352 0000037C 4803151F000000      <1>     add rdx, qword [myIdt.base]    
-   353 00000383 668902              <1>     mov word [rdx], ax  ;Get low word into offset 15...0
-   354 00000386 48C1E810            <1>     shr rax, 10h    ;Bring next word low
-   355 0000038A 66894206            <1>     mov word [rdx + 6], ax  ;Get low word into offset 31...16
-   356 0000038E 48C1E810            <1>     shr rax, 10h    ;Bring last dword low
-   357 00000392 894208              <1>     mov dword [rdx + 8], eax
-   358 00000395 C3                  <1>     ret
-   359                              <1> getIntHdlr:
-   360                              <1> ;Gets an interrupt value. 
-   361                              <1> ;Input: al = Interrupt number
-   362                              <1> ;Output: rbx = Interrupt Vector
-   363 00000396 50                  <1>     push rax
-   364 00000397 B802120000          <1>     mov eax, 1202h  ;Get Interrupt handler in rbx
-   365 0000039C CD2F                <1>     int 2Fh
-   366 0000039E 58                  <1>     pop rax
-   367                              <1>     return
-    13 0000039F C3                  <2>  ret
-   368                              <1>     ;sidt [myIdt]
-   369                              <1>     ;movzx eax, al
-   370                              <1>     ;shl rax, 4h     ;Multiply IDT entry number by 16 (Size of IDT entry)
-   371                              <1>     ;add rax, qword [myIdt.base]    
-   372                              <1>     ;xor ebx, ebx
-   373                              <1>     ;mov ebx, dword [rax + 8]    ;Get bits 63...32
-   374                              <1>     ;shl rbx, 10h    ;Push the high dword high
-   375                              <1>     ;mov bx, word [rax + 6]      ;Get bits 31...16
-   376                              <1>     ;shl rbx, 10h    ;Push word 2 into posiiton
-   377                              <1>     ;mov bx, word [rax]          ;Get bits 15...0
-   378                              <1>     ;return
-   379                              <1> myIdt:
-   380 000003A0 0000                <1> .limit  dw 0
-   381 000003A2 0000000000000000    <1> .base   dq 0
-   381          ------------------  <1>  info: assembly required 1+2+2 passes
+   307                              <1> keybHdlr:   ;Int 36h
+   308 000002E7 84E4                <1>     test ah, ah
+   309 000002E9 740B                <1>     je .readChar
+   310 000002EB 80FC01              <1>     cmp ah, 1
+   311 000002EE 7465                <1>     je .lookahead
+   312 000002F0 FF2561FDFFFF        <1>     jmp qword [pOldKbdHdlr]
+   313                              <1> .readChar:
+   314 000002F6 50                  <1>     push rax    ;Push original function number on the stack
+   315 000002F7 53                  <1>     push rbx
+   316 000002F8 51                  <1>     push rcx
+   317 000002F9 52                  <1>     push rdx
+   318                              <1> .readChLp:
+   319 000002FA 488B1D66FDFFFF      <1>     mov rbx, qword [pScrIoOk]
+   320 00000301 F603FF              <1>     test byte [rbx], -1
+   321 00000304 750F                <1>     jnz .okToRead
+   322 00000306 31C9                <1>     xor ecx, ecx
+   323 00000308 BA09000000          <1>     mov edx, 9  ;Proc block, non-interruptable
+   324 0000030D FF154CFDFFFF        <1>     call qword [pDevHlp]    ;Use this var as identifier.
+   325 00000313 EBE5                <1>     jmp short .readChLp ;Check again!
+   326                              <1> .okToRead:
+   327                              <1> ;Now we simulate a call into 36h/AH=01h - Get keyboard buffer status
+   328 00000315 FA                  <1>     cli
+   329 00000316 4889E2              <1>     mov rdx, rsp
+   330 00000319 31C0                <1>     xor eax, eax
+   331 0000031B 668CD0              <1>     mov ax, ss
+   332 0000031E 50                  <1>     push rax
+   333 0000031F 52                  <1>     push rdx
+   334 00000320 9C                  <1>     pushfq
+   335 00000321 668CC8              <1>     mov ax, cs
+   336 00000324 50                  <1>     push rax
+   337 00000325 B800010000          <1>     mov eax, 0100h  ;Get the keyb status
+   338 0000032A FF1527FDFFFF        <1>     call qword [pOldKbdHdlr]    ;Interrupts remain set on return
+   339 00000330 7519                <1>     jnz .doCharRead
+   340                              <1> ;If the char isn't there, we gotta pblock until it is.
+   341 00000332 488D1D15FDFFFF      <1>     lea rbx, bKeybWait
+   342 00000339 C603FF              <1>     mov byte [rbx], -1
+   343 0000033C 09C9                <1>     or ecx, ecx
+   344 0000033E BA09000000          <1>     mov edx, 9  ;Proc block, non-interruptable
+   345 00000343 FF1516FDFFFF        <1>     call qword [pDevHlp]    ;Use this var as identifier.
+   346 00000349 EBAF                <1>     jmp short .readChLp ;Check again with CLI set!
+   347                              <1> .doCharRead:
+   348 0000034B 5A                  <1>     pop rdx
+   349 0000034C 59                  <1>     pop rcx
+   350 0000034D 5B                  <1>     pop rbx
+   351 0000034E 58                  <1>     pop rax
+   352                              <1> .goKbd:
+   353 0000034F FF2502FDFFFF        <1>     jmp qword [pOldKbdHdlr]
+   354                              <1> .lookahead:
+   355 00000355 53                  <1>     push rbx
+   356 00000356 488B1D0AFDFFFF      <1>     mov rbx, qword [pScrIoOk]   ;Can we check?
+   357 0000035D F603FF              <1>     test byte [rbx], -1
+   358 00000360 5B                  <1>     pop rbx
+   359 00000361 75EC                <1>     jnz .goKbd  ;If we can, do it!
+   360 00000363 80642410FE          <1>     and byte [rsp + 2*8], ~1    ;Clear CF of flags
+   361 00000368 48CF                <1>     iretq
+   362                              <1> ;------------------ EJECT POINT ------------------
+   363                              <1> 
+   364                              <1> init:
+   365                              <1> ;Start by hooking int 3Bh, int 29h and 0F1h (IRQ1) as part of the CON driver
+   366                              <1> ;DO FASTOUT
+   367 0000036A 488D15E7FEFFFF      <1>     lea rdx, fastOutput
+   368 00000371 B829000000          <1>     mov eax, 29h
+   369 00000376 E8DF000000          <1>     call installInterrupt
+   370                              <1> ;DO CTRL+BREAK
+   371 0000037B 488D15DEFEFFFF      <1>     lea rdx, ctrlBreak
+   372 00000382 B83B000000          <1>     mov eax, 3Bh
+   373 00000387 E8CE000000          <1>     call installInterrupt
+   374                              <1> .ci0:
+   375 0000038C B401                <1>     mov ah, 01      ;Get buffer status
+   376 0000038E CD36                <1>     int 36h
+   377 00000390 7406                <1>     jz .ci1      ;If zero clear => no more keys to read
+   378 00000392 30E4                <1>     xor ah, ah
+   379 00000394 CD36                <1>     int 36h ;Read key to flush from buffer
+   380 00000396 EBF4                <1>     jmp short .ci0
+   381                              <1> .ci1:
+   382 00000398 B800050000          <1>     mov eax, 0500h  ;Set page zero as the default page
+   383 0000039D CD30                <1>     int 30h
+   384 0000039F B402                <1>     mov ah, 02h
+   385 000003A1 31D2                <1>     xor edx, edx    ;Set screen cursor to top right corner
+   386 000003A3 88D7                <1>     mov bh, dl      ;Set cursor for page 0
+   387 000003A5 CD30                <1>     int 30h
+   388 000003A7 B707                <1>     mov bh, 07h     ;Grey/Black attribs
+   389 000003A9 B800060000          <1>     mov eax, 0600h  ;Clear whole screen
+   390 000003AE CD30                <1>     int 30h
+   391                              <1> ;Now get the pointer to the bScrnIoOk variable
+   392                              <1> ;Now make a fake bScrnIoOk pointer
+   393 000003B0 488D0594FCFFFF      <1>     lea rax, bSTMode
+   394 000003B7 488905A9FCFFFF      <1>     mov qword [pScrIoOk], rax
+   395                              <1> ;Now install the replacement keyboard interrupt routines!
+   396                              <1> ;DO IRQ1
+   397 000003BE B8F1000000          <1>     mov eax, 0F1h   ;Get IRQ1 handler in rbx
+   398 000003C3 E8BC000000          <1>     call getIntHdlr
+   399 000003C8 48891D80FCFFFF      <1>     mov qword [pOldKbdIntr], rbx
+   400 000003CF 488D1593FEFFFF      <1>     lea rdx, keybIntr
+   401 000003D6 B8F1000000          <1>     mov eax, 0F1h
+   402 000003DB E87A000000          <1>     call installInterrupt
+   403                              <1> ;DO Int 36h
+   404 000003E0 B836000000          <1>     mov eax, 036h   ;Get Int 36h handler in rbx
+   405 000003E5 E89A000000          <1>     call getIntHdlr
+   406 000003EA 48891D66FCFFFF      <1>     mov qword [pOldKbdHdlr], rbx
+   407 000003F1 488D15EFFEFFFF      <1>     lea rdx, keybHdlr
+   408 000003F8 B836000000          <1>     mov eax, 036h
+   409 000003FD E858000000          <1>     call installInterrupt
+   410                              <1> 
+   411 00000402 B800510000          <1>     mov eax, 5100h
+   412 00000407 CD21                <1>     int 21h             ;Get current PSP ptr
+   413 00000409 4881FB09000000      <1>     cmp rbx, 9          ;If we are being used as a Kernel driver, no msg!
+   414 00000410 740E                <1>     je skipMsg
+   415                              <1> ;Else, print message!
+   416 00000412 488D1513000000      <1>     lea rdx, helloStr   ;Print install string
+   417 00000419 B800090000          <1>     mov eax, 0900h
+   418 0000041E CD21                <1>     int 21h
+   419                              <1> skipMsg:
+   420 00000420 488D0543FFFFFF      <1>     lea rax, init   ;Eject init
+   421 00000427 4989400E            <1>     mov qword [r8 + initReqPkt.endptr], rax
+   422                              <1>     return
+    13 0000042B C3                  <2>  ret
+   423                              <1> 
+   424 0000042C 2D2D2D20496E737461- <1> helloStr    db  "--- Installing MCON Device Driver V"
+   424 00000435 6C6C696E67204D434F- <1>
+   424 0000043E 4E2044657669636520- <1>
+   424 00000447 4472697665722056    <1>
+   425 0000044F 302E30              <1>             db  majVers+"0",".",minVers/10+"0"
+   426 00000452 32202D2D2D0A0D24    <1>             db (minVers-minVers/10*10)+"0", " ---", 10,13,"$"
+   427                              <1> 
+   428                              <1> 
+   429                              <1> 
+   430                              <1> installInterrupt:
+   431                              <1> ;Writes the interrupt in the right place in the table
+   432                              <1>     ;al = Interrupt number
+   433                              <1>     ;rdx -> Handler to install
+   434 0000045A 0F010D2D000000      <1>     sidt [myIdt]
+   435 00000461 0FB6C0              <1>     movzx eax, al
+   436 00000464 4892                <1>     xchg rdx, rax
+   437 00000466 48C1E204            <1>     shl rdx, 4h     ;Multiply IDT entry number by 16
+   438 0000046A 4803151F000000      <1>     add rdx, qword [myIdt.base]    
+   439 00000471 668902              <1>     mov word [rdx], ax  ;Get low word into offset 15...0
+   440 00000474 48C1E810            <1>     shr rax, 10h    ;Bring next word low
+   441 00000478 66894206            <1>     mov word [rdx + 6], ax  ;Get low word into offset 31...16
+   442 0000047C 48C1E810            <1>     shr rax, 10h    ;Bring last dword low
+   443 00000480 894208              <1>     mov dword [rdx + 8], eax
+   444 00000483 C3                  <1>     ret
+   445                              <1> getIntHdlr:
+   446                              <1> ;Gets an interrupt value. 
+   447                              <1> ;Input: al = Interrupt number
+   448                              <1> ;Output: rbx = Interrupt Vector
+   449 00000484 50                  <1>     push rax
+   450 00000485 B802120000          <1>     mov eax, 1202h  ;Get Interrupt handler in rbx
+   451 0000048A CD2F                <1>     int 2Fh
+   452 0000048C 58                  <1>     pop rax
+   453                              <1>     return
+    13 0000048D C3                  <2>  ret
+   454                              <1>     ;sidt [myIdt]
+   455                              <1>     ;movzx eax, al
+   456                              <1>     ;shl rax, 4h     ;Multiply IDT entry number by 16 (Size of IDT entry)
+   457                              <1>     ;add rax, qword [myIdt.base]    
+   458                              <1>     ;xor ebx, ebx
+   459                              <1>     ;mov ebx, dword [rax + 8]    ;Get bits 63...32
+   460                              <1>     ;shl rbx, 10h    ;Push the high dword high
+   461                              <1>     ;mov bx, word [rax + 6]      ;Get bits 31...16
+   462                              <1>     ;shl rbx, 10h    ;Push word 2 into posiiton
+   463                              <1>     ;mov bx, word [rax]          ;Get bits 15...0
+   464                              <1>     ;return
+   465                              <1> myIdt:
+   466 0000048E 0000                <1> .limit  dw 0
+   467 00000490 0000000000000000    <1> .base   dq 0
+   467          ------------------  <1>  info: assembly required 1+2+2 passes
 
