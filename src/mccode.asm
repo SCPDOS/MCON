@@ -140,32 +140,86 @@ genIOCTL:
 ; to the driver!
 ;Do all checks to ensure not an accidental call.
     mov rdx, qword [r8 + ioctlReqPkt.ctlptr]
-    cmp cx, 0310h   ;Get MScrCap?
+    cmp ch, 03h     ;Sent to the CON? (Formally, SCR$)?
     jne .exitBad
+    cmp cl, 40h     ;Get Multitasking Screen Capacities/init multitaskting?
+    je .iosc_init
+    cmp cl, 41h     ;Locate SIB
+    je .iosc_ls
+    cmp cl, 42h     ;Save Segment
+    je .iosc_ss
+    cmp cl, 43h     ;Restore Segment
+    je .iosc_rs
+    cmp cl, 44h     ;Enable IO
+    je .iosc_ei
+    cmp cl, 45h     ;Initialise Screen
+    je .iosc_is    
+    cmp cl, 46h     ;Deactivate Multitasking capabilities
+    je .iosc_deinst
+.exitBad:
+    mov word [r8 + drvReqHdr.status], drvErrStatus | drvBadCmd
+    stc
+    return
+.iosc_deinst:
+;Reset the internal vars to set CON back to single tasking mode!
+    cli
+    mov rdx, qword [pOldKbdIntr]
+    mov eax, 0F1h
+    call installInterrupt
+    mov rdx, qword [pOldKbdHdlr]
+    mov eax, 036h
+    call installInterrupt
+    lea rax, noOp
+    mov qword [pDevHlp], rax    ;Restore the do nothing function!
+    sti
+    return
+.iosc_ls:
+;Locate SIB
+.iosc_ss:
+;Save Segment
+.iosc_rs:
+;Restore Segment
+.iosc_ei:
+;Renable IO
+.iosc_is:
+;Initialise screen
+    return
+.iosc_init:
     cmp word [rdx + mScrCap.wVer], 0100h
     jne .exitBad
     cmp word [rdx + mScrCap.wLen], mScrCap_size
     jne .exitBad
 ;Here we have verified we are ok! Proceed.
 ;This IOCTL is equivalent to in MTDOS the CON reporting caps during driver init.
-    movzx eax, word [rdx + mScrCap.wMagic]
-    mov word [wMagicKey], ax
     mov byte [rdx + mScrCap.bScrNum], (maxScr + 1)
     lea rax, mConHlp
-    xchg qword [rdx + mScrCap.pDevHlp], rax  ;Swap pointers
-    mov qword [pDevHlp], rax   ;Store this as the help pointer
+    xchg rax, qword [rdx + mScrCap.pDevHlp] ;For now, still provide this iface
+    ;mov rax, qword [rdx + mScrCap.pDevHlp]  ;Get the devHlp pointer
+    mov qword [pDevHlp], rax
 
-;Now setup the real pointer to the DOSMGR ScrIoOk byte
+;Now setup the pointer to the DOSMGR ScrIoOk byte
     xor eax, eax    ;Get var 0 (ScrIoOk)
     mov ecx, 1      ;Length 1
-    mov edx, 16     ;Get ScrIoOk Var
+    mov edx, DevHlp_GetDOSVar     ;Get ScrIoOk Var
     call qword [pDevHlp]
     mov qword [pScrIoOk], rax   ;Store the pointer now!
-    mov byte [bSTMode], 0       ;Set we are in a MT env!
-    return
-.exitBad:
-    mov word [r8 + drvReqHdr.status], drvErrStatus | drvBadCmd
-    stc
+
+;Now install the multitasking keyboard interrupt routines!
+;DO IRQ1
+    mov eax, 0F1h   ;Get IRQ1 handler in rbx
+    call getIntHdlr
+    mov qword [pOldKbdIntr], rbx
+    lea rdx, keybIntr
+    mov eax, 0F1h
+    call installInterrupt
+;DO Int 36h
+    mov eax, 036h   ;Get Int 36h handler in rbx
+    call getIntHdlr
+    mov qword [pOldKbdHdlr], rbx
+    lea rdx, keybHdlr
+    mov eax, 036h
+    call installInterrupt
+
     return
 ;-------------------------------------------
 ;       mConHlp dispatch and routines
@@ -183,14 +237,8 @@ mConHlp:
     dec eax
     jz resetScreen
     dec eax
-    jz delHlp
+    jz genIOCTL.iosc_deinst ;Cancel help pointer support
     stc
-    return
-delHlp:
-;If the Session Manager has to de-install itself, call this 
-; to indicate that the pDevHlp is no longer valid!
-    lea rax, noOp
-    mov qword [pDevHlp], rax
     return
 getScreen:
     push rbx
@@ -270,7 +318,7 @@ keybIntr:        ;New Keyboard Interrupt Hdlr
     push rax
     mov eax, 0100h              ;Now read ahead, under our handler
     call qword [pOldKbdHdlr]    ;Gets the SC/ASCII pair in ax
-    mov edx, 5                  ;ConsInputFiler
+    mov edx, DevHlp_ConsInputFilter
     call qword [pDevHlp]
     jnz .keepChar
     ;Else remove the char from the buffer
@@ -293,7 +341,7 @@ keybIntr:        ;New Keyboard Interrupt Hdlr
     push rcx
     lea rbx, bKeybWait  ;Run all processes with this identifier
     mov byte [rbx], 0   ;Clear the flag first
-    mov edx, 10  ;ProcRun
+    mov edx, DevHlp_ProcRun  ;ProcRun
     call qword [pDevHlp]
     pop rcx
     pop rbx
@@ -301,7 +349,6 @@ keybIntr:        ;New Keyboard Interrupt Hdlr
     pop rdx
     pop rax
     iretq
-
 
 
 keybHdlr:   ;Int 36h
@@ -320,7 +367,7 @@ keybHdlr:   ;Int 36h
     test byte [rbx], -1
     jnz .okToRead
     xor ecx, ecx
-    mov edx, 9  ;Proc block, non-interruptable
+    mov edx, DevHlp_ProcBlock  ;Proc block, non-interruptable
     call qword [pDevHlp]    ;Use this var as identifier.
     jmp short .readChLp ;Check again!
 .okToRead:
@@ -341,7 +388,7 @@ keybHdlr:   ;Int 36h
     lea rbx, bKeybWait
     mov byte [rbx], -1
     or ecx, ecx
-    mov edx, 9  ;Proc block, non-interruptable
+    mov edx, DevHlp_ProcBlock  ;Proc block, non-interruptable
     call qword [pDevHlp]    ;Use this var as identifier.
     jmp short .readChLp ;Check again with CLI set!
 .doCharRead:
@@ -359,73 +406,6 @@ keybHdlr:   ;Int 36h
     jnz .goKbd  ;If we can, do it!
     and byte [rsp + 2*8], ~1    ;Clear CF of flags
     iretq
-;------------------ EJECT POINT ------------------
-
-init:
-;Start by hooking int 3Bh, int 29h and 0F1h (IRQ1) as part of the CON driver
-;DO FASTOUT
-    lea rdx, fastOutput
-    mov eax, 29h
-    call installInterrupt
-;DO CTRL+BREAK
-    lea rdx, ctrlBreak
-    mov eax, 3Bh
-    call installInterrupt
-.ci0:
-    mov ah, 01      ;Get buffer status
-    int 36h
-    jz .ci1      ;If zero clear => no more keys to read
-    xor ah, ah
-    int 36h ;Read key to flush from buffer
-    jmp short .ci0
-.ci1:
-    mov eax, 0500h  ;Set page zero as the default page
-    int 30h
-    mov ah, 02h
-    xor edx, edx    ;Set screen cursor to top right corner
-    mov bh, dl      ;Set cursor for page 0
-    int 30h
-    mov bh, 07h     ;Grey/Black attribs
-    mov eax, 0600h  ;Clear whole screen
-    int 30h
-;Now get the pointer to the bScrnIoOk variable
-;Now make a fake bScrnIoOk pointer
-    lea rax, bSTMode
-    mov qword [pScrIoOk], rax
-;Now install the replacement keyboard interrupt routines!
-;DO IRQ1
-    mov eax, 0F1h   ;Get IRQ1 handler in rbx
-    call getIntHdlr
-    mov qword [pOldKbdIntr], rbx
-    lea rdx, keybIntr
-    mov eax, 0F1h
-    call installInterrupt
-;DO Int 36h
-    mov eax, 036h   ;Get Int 36h handler in rbx
-    call getIntHdlr
-    mov qword [pOldKbdHdlr], rbx
-    lea rdx, keybHdlr
-    mov eax, 036h
-    call installInterrupt
-
-    mov eax, 5100h
-    int 21h             ;Get current PSP ptr
-    cmp rbx, 9          ;If we are being used as a Kernel driver, no msg!
-    je skipMsg
-;Else, print message!
-    lea rdx, helloStr   ;Print install string
-    mov eax, 0900h
-    int 21h
-skipMsg:
-    lea rax, init   ;Eject init
-    mov qword [r8 + initReqPkt.endptr], rax
-    return
-
-helloStr    db  "--- Installing MCON Device Driver V"
-            db  majVers+"0",".",minVers/10+"0"
-            db (minVers-minVers/10*10)+"0", " ---", 10,13,"$"
-
-
 
 installInterrupt:
 ;Writes the interrupt in the right place in the table
@@ -462,6 +442,50 @@ getIntHdlr:
     ;shl rbx, 10h    ;Push word 2 into posiiton
     ;mov bx, word [rax]          ;Get bits 15...0
     ;return
-myIdt:
-.limit  dw 0
-.base   dq 0
+
+;------------------ EJECT POINT ------------------
+
+init:
+;Start by hooking int 3Bh, int 29h and 0F1h (IRQ1) as part of the CON driver
+;DO FASTOUT
+    lea rdx, fastOutput
+    mov eax, 29h
+    call installInterrupt
+;DO CTRL+BREAK
+    lea rdx, ctrlBreak
+    mov eax, 3Bh
+    call installInterrupt
+.ci0:
+    mov ah, 01      ;Get buffer status
+    int 36h
+    jz .ci1      ;If zero clear => no more keys to read
+    xor ah, ah
+    int 36h ;Read key to flush from buffer
+    jmp short .ci0
+.ci1:
+    mov eax, 0500h  ;Set page zero as the default page
+    int 30h
+    mov ah, 02h
+    xor edx, edx    ;Set screen cursor to top right corner
+    mov bh, dl      ;Set cursor for page 0
+    int 30h
+    mov bh, 07h     ;Grey/Black attribs
+    mov eax, 0600h  ;Clear whole screen
+    int 30h
+
+    mov eax, 5100h
+    int 21h             ;Get current PSP ptr
+    cmp rbx, 9          ;If we are being used as a Kernel driver, no msg!
+    je skipMsg
+;Else, print message!
+    lea rdx, helloStr   ;Print install string
+    mov eax, 0900h
+    int 21h
+skipMsg:
+    lea rax, init   ;Eject init
+    mov qword [r8 + initReqPkt.endptr], rax
+    return
+
+helloStr    db  "--- Installing MCON Device Driver V"
+            db  majVers+"0",".",minVers/10+"0"
+            db (minVers-minVers/10*10)+"0", " ---", 10,13,"$"
