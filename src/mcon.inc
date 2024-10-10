@@ -2,9 +2,9 @@
 
 struc mScrCap
     .wVer       dw ?    ;Upper byte, Major num (1). Lower byte, minor num (0)
-    .wLen       dw ?    ;Length of structure (15 bytes)
+    .wLen       dw ?    ;Length of structure (13 bytes)
     .bScrNum    db ?    ;Number of screens supported by driver
-    .pDevHlp    dq ?    ;Pointer to the mCon help routine
+    .pDevHlp    dq ?    ;Pointer to the devHlp help routine
 endstruc
 
 maxScr  equ 07h ;Screens 0 - 7 (so 8 screens)
