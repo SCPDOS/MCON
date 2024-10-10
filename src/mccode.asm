@@ -289,9 +289,31 @@ fastOutput:         ;This CON driver supports Int 29h
     int 30h
     pop rax
     iretq
+
 ctrlBreak:
-;CON Int 3Bh handler to detect CTRL+BREAK
-    mov byte [bConBuf], 03h    ;Place a ^C in buffer
+;CON Int 3Bh handler to detect CTRL+BREAK.
+    push rax
+    push rdx
+;Simulate an interrupt call to the BIOS to pull the key out
+; from the buffer.
+    mov rdx, rsp
+    xor eax, eax
+    mov ax, ss
+    push rax
+    push rdx
+    pushfq
+    mov ax, cs
+    push rax
+    xor eax, eax    ;Getch, BIOS Places a zero word in the keyboard buffer
+    call qword [pOldKbdHdlr]    ;Pull the zero word out of the keyb buffer
+    mov eax, 03h                ;Replace it with a ^C char
+    mov edx, DevHlp_ConsInputFilter
+    call qword [pDevHlp]        ;Ask DOS if it wants to eat the ^C
+    jz .exit                    ;Jump if DOS ate ^C :(
+    mov byte [bConBuf], 03h     ;Place a ^C in buffer
+.exit:
+    pop rdx
+    pop rax
     iretq
 
 keybIntr:        ;New Keyboard Interrupt Hdlr

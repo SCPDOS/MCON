@@ -12,7 +12,7 @@ Output file:  ./bin/mcon.sys
 
 Vstart            Start             Stop              Length    Class     Name
                0                 0                 0  00000000  progbits  .text
-               0                 0               4BF  000004BF  progbits  cseg
+               0                 0               4EC  000004EC  progbits  cseg
 
 -- Sections (detailed) --------------------------------------------------------
 
@@ -30,7 +30,7 @@ vfollows:  not defined
 ---- Section cseg -------------------------------------------------------------
 
 class:     progbits
-length:                 4BF
+length:                 4EC
 start:                    0
 align:     not defined
 follows:   not defined
@@ -308,21 +308,22 @@ Real              Virtual           Name
              2B7               2B7  resetScreen
              2DB               2DB  fastOutput
              2E3               2E3  ctrlBreak
-             2EC               2EC  keybIntr
-             343               343  keybIntr.keepChar
-             366               366  keybIntr.exit
-             36A               36A  keybHdlr
-             379               379  keybHdlr.readChar
-             37D               37D  keybHdlr.readChLp
-             398               398  keybHdlr.okToRead
-             3CE               3CE  keybHdlr.doCharRead
-             3D2               3D2  keybHdlr.goKbd
-             3D8               3D8  keybHdlr.lookahead
-             3ED               3ED  installInterrupt
-             417               417  getIntHdlr
-             421               421  init
-             443               443  init.ci0
-             44F               44F  init.ci1
-             485               485  skipMsg
-             491               491  helloStr
+             315               315  ctrlBreak.exit
+             319               319  keybIntr
+             370               370  keybIntr.keepChar
+             393               393  keybIntr.exit
+             397               397  keybHdlr
+             3A6               3A6  keybHdlr.readChar
+             3AA               3AA  keybHdlr.readChLp
+             3C5               3C5  keybHdlr.okToRead
+             3FB               3FB  keybHdlr.doCharRead
+             3FF               3FF  keybHdlr.goKbd
+             405               405  keybHdlr.lookahead
+             41A               41A  installInterrupt
+             444               444  getIntHdlr
+             44E               44E  init
+             470               470  init.ci0
+             47C               47C  init.ci1
+             4B2               4B2  skipMsg
+             4BE               4BE  helloStr
 

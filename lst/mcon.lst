@@ -426,7 +426,7 @@
     11 0000001A 434F4E2020202020    <1>     db "CON     "
     12                              <1> 
     13                              <1> funcTbl:
-    14 00000022 FF03                <1>     dw init - funcTbl       ;Init function
+    14 00000022 2C04                <1>     dw init - funcTbl       ;Init function
     15 00000024 9300                <1>     dw noOp - funcTbl       ;Media Check
     16 00000026 9300                <1>     dw noOp - funcTbl       ;Build BPB
     17 00000028 9400                <1>     dw unkExit - funcTbl    ;IOCTL Input
@@ -641,10 +641,10 @@
    165 000001C9 FA                  <1>     cli
    166 000001CA 488B157BFEFFFF      <1>     mov rdx, qword [pOldKbdIntr]
    167 000001D1 B8F1000000          <1>     mov eax, 0F1h
-   168 000001D6 E812020000          <1>     call installInterrupt
+   168 000001D6 E83F020000          <1>     call installInterrupt
    169 000001DB 488B1572FEFFFF      <1>     mov rdx, qword [pOldKbdHdlr]
    170 000001E2 B836000000          <1>     mov eax, 036h
-   171 000001E7 E801020000          <1>     call installInterrupt
+   171 000001E7 E82E020000          <1>     call installInterrupt
    172 000001EC 488D05C2FEFFFF      <1>     lea rax, noOp
    173 000001F3 48890562FEFFFF      <1>     mov qword [pDevHlp], rax    ;Restore the do nothing function!
    174 000001FA FB                  <1>     sti
@@ -685,18 +685,18 @@
    207                              <1> ;Now install the multitasking keyboard interrupt routines!
    208                              <1> ;DO IRQ1
    209 0000023B B8F1000000          <1>     mov eax, 0F1h   ;Get IRQ1 handler in rbx
-   210 00000240 E8D2010000          <1>     call getIntHdlr
+   210 00000240 E8FF010000          <1>     call getIntHdlr
    211 00000245 48891D00FEFFFF      <1>     mov qword [pOldKbdIntr], rbx
-   212 0000024C 488D1599000000      <1>     lea rdx, keybIntr
+   212 0000024C 488D15C6000000      <1>     lea rdx, keybIntr
    213 00000253 B8F1000000          <1>     mov eax, 0F1h
-   214 00000258 E890010000          <1>     call installInterrupt
+   214 00000258 E8BD010000          <1>     call installInterrupt
    215                              <1> ;DO Int 36h
    216 0000025D B836000000          <1>     mov eax, 036h   ;Get Int 36h handler in rbx
-   217 00000262 E8B0010000          <1>     call getIntHdlr
+   217 00000262 E8DD010000          <1>     call getIntHdlr
    218 00000267 48891DE6FDFFFF      <1>     mov qword [pOldKbdHdlr], rbx
-   219 0000026E 488D15F5000000      <1>     lea rdx, keybHdlr
+   219 0000026E 488D1522010000      <1>     lea rdx, keybHdlr
    220 00000275 B836000000          <1>     mov eax, 036h
-   221 0000027A E86E010000          <1>     call installInterrupt
+   221 0000027A E89B010000          <1>     call installInterrupt
    222                              <1> 
    223                              <1>     return
     13 0000027F C3                  <2>  ret
@@ -773,210 +773,232 @@
    289 000002DE CD30                <1>     int 30h
    290 000002E0 58                  <1>     pop rax
    291 000002E1 48CF                <1>     iretq
-   292                              <1> ctrlBreak:
-   293                              <1> ;CON Int 3Bh handler to detect CTRL+BREAK
-   294 000002E3 C60560FDFFFF03      <1>     mov byte [bConBuf], 03h    ;Place a ^C in buffer
-   295 000002EA 48CF                <1>     iretq
-   296                              <1> 
-   297                              <1> keybIntr:        ;New Keyboard Interrupt Hdlr
-   298 000002EC 50                  <1>     push rax        ;Save RAX as a trashed reg
-   299 000002ED 52                  <1>     push rdx
-   300                              <1> ;Simulate an IRQ entry to old kbdHldr
-   301 000002EE 4889E2              <1>     mov rdx, rsp
-   302 000002F1 31C0                <1>     xor eax, eax
-   303 000002F3 668CD0              <1>     mov ax, ss
-   304 000002F6 50                  <1>     push rax
-   305 000002F7 52                  <1>     push rdx
-   306 000002F8 9C                  <1>     pushfq
-   307 000002F9 668CC8              <1>     mov ax, cs
-   308 000002FC 50                  <1>     push rax
-   309 000002FD FF1549FDFFFF        <1>     call qword [pOldKbdIntr]    ;Do the SCP/BIOS kbd handler code!
-   310                              <1> 
-   311 00000303 4889E2              <1>     mov rdx, rsp
-   312 00000306 31C0                <1>     xor eax, eax
-   313 00000308 668CD0              <1>     mov ax, ss
-   314 0000030B 50                  <1>     push rax
-   315 0000030C 52                  <1>     push rdx
-   316 0000030D 9C                  <1>     pushfq
-   317 0000030E 668CC8              <1>     mov ax, cs
-   318 00000311 50                  <1>     push rax
-   319 00000312 B800010000          <1>     mov eax, 0100h              ;Now read ahead, under our handler
-   320 00000317 FF1537FDFFFF        <1>     call qword [pOldKbdHdlr]    ;Gets the SC/ASCII pair in ax
-   321 0000031D BA05000000          <1>     mov edx, DevHlp_ConsInputFilter
-   322 00000322 FF1534FDFFFF        <1>     call qword [pDevHlp]
-   323 00000328 7519                <1>     jnz .keepChar
-   324                              <1>     ;Else remove the char from the buffer
-   325 0000032A 4889E2              <1>     mov rdx, rsp
-   326 0000032D 31C0                <1>     xor eax, eax
-   327 0000032F 668CD0              <1>     mov ax, ss
-   328 00000332 50                  <1>     push rax
-   329 00000333 52                  <1>     push rdx
-   330 00000334 9C                  <1>     pushfq
-   331 00000335 668CC8              <1>     mov ax, cs
-   332 00000338 50                  <1>     push rax
-   333 00000339 31C0                <1>     xor eax, eax
-   334 0000033B FF1513FDFFFF        <1>     call qword [pOldKbdHdlr]    ;Gets the SC/ASCII pair in ax
-   335 00000341 EB23                <1>     jmp short .exit
-   336                              <1> .keepChar:
-   337 00000343 FA                  <1>     cli
-   338 00000344 F60500FDFFFFFF      <1>     test byte [bKeybWait], -1  
-   339 0000034B 7419                <1>     jz .exit
-   340 0000034D 53                  <1>     push rbx
-   341 0000034E 51                  <1>     push rcx
-   342 0000034F 488D1DF5FCFFFF      <1>     lea rbx, bKeybWait  ;Run all processes with this identifier
-   343 00000356 C60300              <1>     mov byte [rbx], 0   ;Clear the flag first
-   344 00000359 BA0A000000          <1>     mov edx, DevHlp_ProcRun  ;ProcRun
-   345 0000035E FF15F8FCFFFF        <1>     call qword [pDevHlp]
-   346 00000364 59                  <1>     pop rcx
-   347 00000365 5B                  <1>     pop rbx
-   348                              <1> .exit:
-   349 00000366 5A                  <1>     pop rdx
-   350 00000367 58                  <1>     pop rax
-   351 00000368 48CF                <1>     iretq
-   352                              <1> 
-   353                              <1> 
-   354                              <1> keybHdlr:   ;Int 36h
-   355 0000036A 84E4                <1>     test ah, ah
-   356 0000036C 740B                <1>     je .readChar
-   357 0000036E 80FC01              <1>     cmp ah, 1
-   358 00000371 7465                <1>     je .lookahead
-   359 00000373 FF25DBFCFFFF        <1>     jmp qword [pOldKbdHdlr]
-   360                              <1> .readChar:
-   361 00000379 50                  <1>     push rax    ;Push original function number on the stack
+   292                              <1> 
+   293                              <1> ctrlBreak:
+   294                              <1> ;CON Int 3Bh handler to detect CTRL+BREAK.
+   295 000002E3 50                  <1>     push rax
+   296 000002E4 52                  <1>     push rdx
+   297                              <1> ;Simulate an interrupt call to the BIOS to pull the key out
+   298                              <1> ; from the buffer.
+   299 000002E5 4889E2              <1>     mov rdx, rsp
+   300 000002E8 31C0                <1>     xor eax, eax
+   301 000002EA 668CD0              <1>     mov ax, ss
+   302 000002ED 50                  <1>     push rax
+   303 000002EE 52                  <1>     push rdx
+   304 000002EF 9C                  <1>     pushfq
+   305 000002F0 668CC8              <1>     mov ax, cs
+   306 000002F3 50                  <1>     push rax
+   307 000002F4 31C0                <1>     xor eax, eax    ;Getch, BIOS Places a zero word in the keyboard buffer
+   308 000002F6 FF1558FDFFFF        <1>     call qword [pOldKbdHdlr]    ;Pull the zero word out of the keyb buffer
+   309 000002FC B803000000          <1>     mov eax, 03h                ;Replace it with a ^C char
+   310 00000301 BA05000000          <1>     mov edx, DevHlp_ConsInputFilter
+   311 00000306 FF1550FDFFFF        <1>     call qword [pDevHlp]        ;Ask DOS if it wants to eat the ^C
+   312 0000030C 7407                <1>     jz .exit                    ;Jump if DOS ate ^C :(
+   313 0000030E C60535FDFFFF03      <1>     mov byte [bConBuf], 03h     ;Place a ^C in buffer
+   314                              <1> .exit:
+   315 00000315 5A                  <1>     pop rdx
+   316 00000316 58                  <1>     pop rax
+   317 00000317 48CF                <1>     iretq
+   318                              <1> 
+   319                              <1> keybIntr:        ;New Keyboard Interrupt Hdlr
+   320 00000319 50                  <1>     push rax        ;Save RAX as a trashed reg
+   321 0000031A 52                  <1>     push rdx
+   322                              <1> ;Simulate an IRQ entry to old kbdHldr
+   323 0000031B 4889E2              <1>     mov rdx, rsp
+   324 0000031E 31C0                <1>     xor eax, eax
+   325 00000320 668CD0              <1>     mov ax, ss
+   326 00000323 50                  <1>     push rax
+   327 00000324 52                  <1>     push rdx
+   328 00000325 9C                  <1>     pushfq
+   329 00000326 668CC8              <1>     mov ax, cs
+   330 00000329 50                  <1>     push rax
+   331 0000032A FF151CFDFFFF        <1>     call qword [pOldKbdIntr]    ;Do the SCP/BIOS kbd handler code!
+   332                              <1> 
+   333 00000330 4889E2              <1>     mov rdx, rsp
+   334 00000333 31C0                <1>     xor eax, eax
+   335 00000335 668CD0              <1>     mov ax, ss
+   336 00000338 50                  <1>     push rax
+   337 00000339 52                  <1>     push rdx
+   338 0000033A 9C                  <1>     pushfq
+   339 0000033B 668CC8              <1>     mov ax, cs
+   340 0000033E 50                  <1>     push rax
+   341 0000033F B800010000          <1>     mov eax, 0100h              ;Now read ahead, under our handler
+   342 00000344 FF150AFDFFFF        <1>     call qword [pOldKbdHdlr]    ;Gets the SC/ASCII pair in ax
+   343 0000034A BA05000000          <1>     mov edx, DevHlp_ConsInputFilter
+   344 0000034F FF1507FDFFFF        <1>     call qword [pDevHlp]
+   345 00000355 7519                <1>     jnz .keepChar
+   346                              <1>     ;Else remove the char from the buffer
+   347 00000357 4889E2              <1>     mov rdx, rsp
+   348 0000035A 31C0                <1>     xor eax, eax
+   349 0000035C 668CD0              <1>     mov ax, ss
+   350 0000035F 50                  <1>     push rax
+   351 00000360 52                  <1>     push rdx
+   352 00000361 9C                  <1>     pushfq
+   353 00000362 668CC8              <1>     mov ax, cs
+   354 00000365 50                  <1>     push rax
+   355 00000366 31C0                <1>     xor eax, eax
+   356 00000368 FF15E6FCFFFF        <1>     call qword [pOldKbdHdlr]    ;Gets the SC/ASCII pair in ax
+   357 0000036E EB23                <1>     jmp short .exit
+   358                              <1> .keepChar:
+   359 00000370 FA                  <1>     cli
+   360 00000371 F605D3FCFFFFFF      <1>     test byte [bKeybWait], -1  
+   361 00000378 7419                <1>     jz .exit
    362 0000037A 53                  <1>     push rbx
    363 0000037B 51                  <1>     push rcx
-   364 0000037C 52                  <1>     push rdx
-   365                              <1> .readChLp:
-   366 0000037D 488B1DE0FCFFFF      <1>     mov rbx, qword [pScrIoOk]
-   367 00000384 F603FF              <1>     test byte [rbx], -1
-   368 00000387 750F                <1>     jnz .okToRead
-   369 00000389 31C9                <1>     xor ecx, ecx
-   370 0000038B BA09000000          <1>     mov edx, DevHlp_ProcBlock  ;Proc block, non-interruptable
-   371 00000390 FF15C6FCFFFF        <1>     call qword [pDevHlp]    ;Use this var as identifier.
-   372 00000396 EBE5                <1>     jmp short .readChLp ;Check again!
-   373                              <1> .okToRead:
-   374                              <1> ;Now we simulate a call into 36h/AH=01h - Get keyboard buffer status
-   375 00000398 FA                  <1>     cli
-   376 00000399 4889E2              <1>     mov rdx, rsp
-   377 0000039C 31C0                <1>     xor eax, eax
-   378 0000039E 668CD0              <1>     mov ax, ss
-   379 000003A1 50                  <1>     push rax
-   380 000003A2 52                  <1>     push rdx
-   381 000003A3 9C                  <1>     pushfq
-   382 000003A4 668CC8              <1>     mov ax, cs
-   383 000003A7 50                  <1>     push rax
-   384 000003A8 B800010000          <1>     mov eax, 0100h  ;Get the keyb status
-   385 000003AD FF15A1FCFFFF        <1>     call qword [pOldKbdHdlr]    ;Interrupts remain set on return
-   386 000003B3 7519                <1>     jnz .doCharRead
-   387                              <1> ;If the char isn't there, we gotta pblock until it is.
-   388 000003B5 488D1D8FFCFFFF      <1>     lea rbx, bKeybWait
-   389 000003BC C603FF              <1>     mov byte [rbx], -1
-   390 000003BF 09C9                <1>     or ecx, ecx
-   391 000003C1 BA09000000          <1>     mov edx, DevHlp_ProcBlock  ;Proc block, non-interruptable
-   392 000003C6 FF1590FCFFFF        <1>     call qword [pDevHlp]    ;Use this var as identifier.
-   393 000003CC EBAF                <1>     jmp short .readChLp ;Check again with CLI set!
-   394                              <1> .doCharRead:
-   395 000003CE 5A                  <1>     pop rdx
-   396 000003CF 59                  <1>     pop rcx
-   397 000003D0 5B                  <1>     pop rbx
-   398 000003D1 58                  <1>     pop rax
-   399                              <1> .goKbd:
-   400 000003D2 FF257CFCFFFF        <1>     jmp qword [pOldKbdHdlr]
-   401                              <1> .lookahead:
-   402 000003D8 53                  <1>     push rbx
-   403 000003D9 488B1D84FCFFFF      <1>     mov rbx, qword [pScrIoOk]   ;Can we check?
-   404 000003E0 F603FF              <1>     test byte [rbx], -1
-   405 000003E3 5B                  <1>     pop rbx
-   406 000003E4 75EC                <1>     jnz .goKbd  ;If we can, do it!
-   407 000003E6 80642410FE          <1>     and byte [rsp + 2*8], ~1    ;Clear CF of flags
-   408 000003EB 48CF                <1>     iretq
-   409                              <1> 
-   410                              <1> installInterrupt:
-   411                              <1> ;Writes the interrupt in the right place in the table
-   412                              <1>     ;al = Interrupt number
-   413                              <1>     ;rdx -> Handler to install
-   414 000003ED 0F010D78FCFFFF      <1>     sidt [myIdt]
-   415 000003F4 0FB6C0              <1>     movzx eax, al
-   416 000003F7 4892                <1>     xchg rdx, rax
-   417 000003F9 48C1E204            <1>     shl rdx, 4h     ;Multiply IDT entry number by 16
-   418 000003FD 4803156AFCFFFF      <1>     add rdx, qword [myIdt.base]    
-   419 00000404 668902              <1>     mov word [rdx], ax  ;Get low word into offset 15...0
-   420 00000407 48C1E810            <1>     shr rax, 10h    ;Bring next word low
-   421 0000040B 66894206            <1>     mov word [rdx + 6], ax  ;Get low word into offset 31...16
-   422 0000040F 48C1E810            <1>     shr rax, 10h    ;Bring last dword low
-   423 00000413 894208              <1>     mov dword [rdx + 8], eax
-   424 00000416 C3                  <1>     ret
-   425                              <1> getIntHdlr:
-   426                              <1> ;Gets an interrupt value. 
-   427                              <1> ;Input: al = Interrupt number
-   428                              <1> ;Output: rbx = Interrupt Vector
-   429 00000417 50                  <1>     push rax
-   430 00000418 B802120000          <1>     mov eax, 1202h  ;Get Interrupt handler in rbx
-   431 0000041D CD2F                <1>     int 2Fh
-   432 0000041F 58                  <1>     pop rax
-   433                              <1>     return
-    13 00000420 C3                  <2>  ret
-   434                              <1>     ;sidt [myIdt]
-   435                              <1>     ;movzx eax, al
-   436                              <1>     ;shl rax, 4h     ;Multiply IDT entry number by 16 (Size of IDT entry)
-   437                              <1>     ;add rax, qword [myIdt.base]    
-   438                              <1>     ;xor ebx, ebx
-   439                              <1>     ;mov ebx, dword [rax + 8]    ;Get bits 63...32
-   440                              <1>     ;shl rbx, 10h    ;Push the high dword high
-   441                              <1>     ;mov bx, word [rax + 6]      ;Get bits 31...16
-   442                              <1>     ;shl rbx, 10h    ;Push word 2 into posiiton
-   443                              <1>     ;mov bx, word [rax]          ;Get bits 15...0
-   444                              <1>     ;return
-   445                              <1> 
-   446                              <1> ;------------------ EJECT POINT ------------------
-   447                              <1> 
-   448                              <1> init:
-   449                              <1> ;Start by hooking int 3Bh, int 29h and 0F1h (IRQ1) as part of the CON driver
-   450                              <1> ;DO FASTOUT
-   451 00000421 488D15B3FEFFFF      <1>     lea rdx, fastOutput
-   452 00000428 B829000000          <1>     mov eax, 29h
-   453 0000042D E8BBFFFFFF          <1>     call installInterrupt
-   454                              <1> ;DO CTRL+BREAK
-   455 00000432 488D15AAFEFFFF      <1>     lea rdx, ctrlBreak
-   456 00000439 B83B000000          <1>     mov eax, 3Bh
-   457 0000043E E8AAFFFFFF          <1>     call installInterrupt
-   458                              <1> .ci0:
-   459 00000443 B401                <1>     mov ah, 01      ;Get buffer status
-   460 00000445 CD36                <1>     int 36h
-   461 00000447 7406                <1>     jz .ci1      ;If zero clear => no more keys to read
-   462 00000449 30E4                <1>     xor ah, ah
-   463 0000044B CD36                <1>     int 36h ;Read key to flush from buffer
-   464 0000044D EBF4                <1>     jmp short .ci0
-   465                              <1> .ci1:
-   466 0000044F B800050000          <1>     mov eax, 0500h  ;Set page zero as the default page
-   467 00000454 CD30                <1>     int 30h
-   468 00000456 B402                <1>     mov ah, 02h
-   469 00000458 31D2                <1>     xor edx, edx    ;Set screen cursor to top right corner
-   470 0000045A 88D7                <1>     mov bh, dl      ;Set cursor for page 0
-   471 0000045C CD30                <1>     int 30h
-   472 0000045E B707                <1>     mov bh, 07h     ;Grey/Black attribs
-   473 00000460 B800060000          <1>     mov eax, 0600h  ;Clear whole screen
-   474 00000465 CD30                <1>     int 30h
-   475                              <1> 
-   476 00000467 B800510000          <1>     mov eax, 5100h
-   477 0000046C CD21                <1>     int 21h             ;Get current PSP ptr
-   478 0000046E 4881FB09000000      <1>     cmp rbx, 9          ;If we are being used as a Kernel driver, no msg!
-   479 00000475 740E                <1>     je skipMsg
-   480                              <1> ;Else, print message!
-   481 00000477 488D1513000000      <1>     lea rdx, helloStr   ;Print install string
-   482 0000047E B800090000          <1>     mov eax, 0900h
-   483 00000483 CD21                <1>     int 21h
-   484                              <1> skipMsg:
-   485 00000485 488D0595FFFFFF      <1>     lea rax, init   ;Eject init
-   486 0000048C 4989400E            <1>     mov qword [r8 + initReqPkt.endptr], rax
-   487                              <1>     return
-    13 00000490 C3                  <2>  ret
-   488                              <1> 
-   489 00000491 2D2D2D20496E737461- <1> helloStr    db  "--- Installing MCON Device Driver V"
-   489 0000049A 6C6C696E67204D434F- <1>
-   489 000004A3 4E2044657669636520- <1>
-   489 000004AC 4472697665722056    <1>
-   490 000004B4 302E30              <1>             db  majVers+"0",".",minVers/10+"0"
-   491 000004B7 32202D2D2D0A0D24    <1>             db (minVers-minVers/10*10)+"0", " ---", 10,13,"$"
-   491          ------------------  <1>  info: assembly required 1+2+2 passes
+   364 0000037C 488D1DC8FCFFFF      <1>     lea rbx, bKeybWait  ;Run all processes with this identifier
+   365 00000383 C60300              <1>     mov byte [rbx], 0   ;Clear the flag first
+   366 00000386 BA0A000000          <1>     mov edx, DevHlp_ProcRun  ;ProcRun
+   367 0000038B FF15CBFCFFFF        <1>     call qword [pDevHlp]
+   368 00000391 59                  <1>     pop rcx
+   369 00000392 5B                  <1>     pop rbx
+   370                              <1> .exit:
+   371 00000393 5A                  <1>     pop rdx
+   372 00000394 58                  <1>     pop rax
+   373 00000395 48CF                <1>     iretq
+   374                              <1> 
+   375                              <1> 
+   376                              <1> keybHdlr:   ;Int 36h
+   377 00000397 84E4                <1>     test ah, ah
+   378 00000399 740B                <1>     je .readChar
+   379 0000039B 80FC01              <1>     cmp ah, 1
+   380 0000039E 7465                <1>     je .lookahead
+   381 000003A0 FF25AEFCFFFF        <1>     jmp qword [pOldKbdHdlr]
+   382                              <1> .readChar:
+   383 000003A6 50                  <1>     push rax    ;Push original function number on the stack
+   384 000003A7 53                  <1>     push rbx
+   385 000003A8 51                  <1>     push rcx
+   386 000003A9 52                  <1>     push rdx
+   387                              <1> .readChLp:
+   388 000003AA 488B1DB3FCFFFF      <1>     mov rbx, qword [pScrIoOk]
+   389 000003B1 F603FF              <1>     test byte [rbx], -1
+   390 000003B4 750F                <1>     jnz .okToRead
+   391 000003B6 31C9                <1>     xor ecx, ecx
+   392 000003B8 BA09000000          <1>     mov edx, DevHlp_ProcBlock  ;Proc block, non-interruptable
+   393 000003BD FF1599FCFFFF        <1>     call qword [pDevHlp]    ;Use this var as identifier.
+   394 000003C3 EBE5                <1>     jmp short .readChLp ;Check again!
+   395                              <1> .okToRead:
+   396                              <1> ;Now we simulate a call into 36h/AH=01h - Get keyboard buffer status
+   397 000003C5 FA                  <1>     cli
+   398 000003C6 4889E2              <1>     mov rdx, rsp
+   399 000003C9 31C0                <1>     xor eax, eax
+   400 000003CB 668CD0              <1>     mov ax, ss
+   401 000003CE 50                  <1>     push rax
+   402 000003CF 52                  <1>     push rdx
+   403 000003D0 9C                  <1>     pushfq
+   404 000003D1 668CC8              <1>     mov ax, cs
+   405 000003D4 50                  <1>     push rax
+   406 000003D5 B800010000          <1>     mov eax, 0100h  ;Get the keyb status
+   407 000003DA FF1574FCFFFF        <1>     call qword [pOldKbdHdlr]    ;Interrupts remain set on return
+   408 000003E0 7519                <1>     jnz .doCharRead
+   409                              <1> ;If the char isn't there, we gotta pblock until it is.
+   410 000003E2 488D1D62FCFFFF      <1>     lea rbx, bKeybWait
+   411 000003E9 C603FF              <1>     mov byte [rbx], -1
+   412 000003EC 09C9                <1>     or ecx, ecx
+   413 000003EE BA09000000          <1>     mov edx, DevHlp_ProcBlock  ;Proc block, non-interruptable
+   414 000003F3 FF1563FCFFFF        <1>     call qword [pDevHlp]    ;Use this var as identifier.
+   415 000003F9 EBAF                <1>     jmp short .readChLp ;Check again with CLI set!
+   416                              <1> .doCharRead:
+   417 000003FB 5A                  <1>     pop rdx
+   418 000003FC 59                  <1>     pop rcx
+   419 000003FD 5B                  <1>     pop rbx
+   420 000003FE 58                  <1>     pop rax
+   421                              <1> .goKbd:
+   422 000003FF FF254FFCFFFF        <1>     jmp qword [pOldKbdHdlr]
+   423                              <1> .lookahead:
+   424 00000405 53                  <1>     push rbx
+   425 00000406 488B1D57FCFFFF      <1>     mov rbx, qword [pScrIoOk]   ;Can we check?
+   426 0000040D F603FF              <1>     test byte [rbx], -1
+   427 00000410 5B                  <1>     pop rbx
+   428 00000411 75EC                <1>     jnz .goKbd  ;If we can, do it!
+   429 00000413 80642410FE          <1>     and byte [rsp + 2*8], ~1    ;Clear CF of flags
+   430 00000418 48CF                <1>     iretq
+   431                              <1> 
+   432                              <1> installInterrupt:
+   433                              <1> ;Writes the interrupt in the right place in the table
+   434                              <1>     ;al = Interrupt number
+   435                              <1>     ;rdx -> Handler to install
+   436 0000041A 0F010D4BFCFFFF      <1>     sidt [myIdt]
+   437 00000421 0FB6C0              <1>     movzx eax, al
+   438 00000424 4892                <1>     xchg rdx, rax
+   439 00000426 48C1E204            <1>     shl rdx, 4h     ;Multiply IDT entry number by 16
+   440 0000042A 4803153DFCFFFF      <1>     add rdx, qword [myIdt.base]    
+   441 00000431 668902              <1>     mov word [rdx], ax  ;Get low word into offset 15...0
+   442 00000434 48C1E810            <1>     shr rax, 10h    ;Bring next word low
+   443 00000438 66894206            <1>     mov word [rdx + 6], ax  ;Get low word into offset 31...16
+   444 0000043C 48C1E810            <1>     shr rax, 10h    ;Bring last dword low
+   445 00000440 894208              <1>     mov dword [rdx + 8], eax
+   446 00000443 C3                  <1>     ret
+   447                              <1> getIntHdlr:
+   448                              <1> ;Gets an interrupt value. 
+   449                              <1> ;Input: al = Interrupt number
+   450                              <1> ;Output: rbx = Interrupt Vector
+   451 00000444 50                  <1>     push rax
+   452 00000445 B802120000          <1>     mov eax, 1202h  ;Get Interrupt handler in rbx
+   453 0000044A CD2F                <1>     int 2Fh
+   454 0000044C 58                  <1>     pop rax
+   455                              <1>     return
+    13 0000044D C3                  <2>  ret
+   456                              <1>     ;sidt [myIdt]
+   457                              <1>     ;movzx eax, al
+   458                              <1>     ;shl rax, 4h     ;Multiply IDT entry number by 16 (Size of IDT entry)
+   459                              <1>     ;add rax, qword [myIdt.base]    
+   460                              <1>     ;xor ebx, ebx
+   461                              <1>     ;mov ebx, dword [rax + 8]    ;Get bits 63...32
+   462                              <1>     ;shl rbx, 10h    ;Push the high dword high
+   463                              <1>     ;mov bx, word [rax + 6]      ;Get bits 31...16
+   464                              <1>     ;shl rbx, 10h    ;Push word 2 into posiiton
+   465                              <1>     ;mov bx, word [rax]          ;Get bits 15...0
+   466                              <1>     ;return
+   467                              <1> 
+   468                              <1> ;------------------ EJECT POINT ------------------
+   469                              <1> 
+   470                              <1> init:
+   471                              <1> ;Start by hooking int 3Bh, int 29h and 0F1h (IRQ1) as part of the CON driver
+   472                              <1> ;DO FASTOUT
+   473 0000044E 488D1586FEFFFF      <1>     lea rdx, fastOutput
+   474 00000455 B829000000          <1>     mov eax, 29h
+   475 0000045A E8BBFFFFFF          <1>     call installInterrupt
+   476                              <1> ;DO CTRL+BREAK
+   477 0000045F 488D157DFEFFFF      <1>     lea rdx, ctrlBreak
+   478 00000466 B83B000000          <1>     mov eax, 3Bh
+   479 0000046B E8AAFFFFFF          <1>     call installInterrupt
+   480                              <1> .ci0:
+   481 00000470 B401                <1>     mov ah, 01      ;Get buffer status
+   482 00000472 CD36                <1>     int 36h
+   483 00000474 7406                <1>     jz .ci1      ;If zero clear => no more keys to read
+   484 00000476 30E4                <1>     xor ah, ah
+   485 00000478 CD36                <1>     int 36h ;Read key to flush from buffer
+   486 0000047A EBF4                <1>     jmp short .ci0
+   487                              <1> .ci1:
+   488 0000047C B800050000          <1>     mov eax, 0500h  ;Set page zero as the default page
+   489 00000481 CD30                <1>     int 30h
+   490 00000483 B402                <1>     mov ah, 02h
+   491 00000485 31D2                <1>     xor edx, edx    ;Set screen cursor to top right corner
+   492 00000487 88D7                <1>     mov bh, dl      ;Set cursor for page 0
+   493 00000489 CD30                <1>     int 30h
+   494 0000048B B707                <1>     mov bh, 07h     ;Grey/Black attribs
+   495 0000048D B800060000          <1>     mov eax, 0600h  ;Clear whole screen
+   496 00000492 CD30                <1>     int 30h
+   497                              <1> 
+   498 00000494 B800510000          <1>     mov eax, 5100h
+   499 00000499 CD21                <1>     int 21h             ;Get current PSP ptr
+   500 0000049B 4881FB09000000      <1>     cmp rbx, 9          ;If we are being used as a Kernel driver, no msg!
+   501 000004A2 740E                <1>     je skipMsg
+   502                              <1> ;Else, print message!
+   503 000004A4 488D1513000000      <1>     lea rdx, helloStr   ;Print install string
+   504 000004AB B800090000          <1>     mov eax, 0900h
+   505 000004B0 CD21                <1>     int 21h
+   506                              <1> skipMsg:
+   507 000004B2 488D0595FFFFFF      <1>     lea rax, init   ;Eject init
+   508 000004B9 4989400E            <1>     mov qword [r8 + initReqPkt.endptr], rax
+   509                              <1>     return
+    13 000004BD C3                  <2>  ret
+   510                              <1> 
+   511 000004BE 2D2D2D20496E737461- <1> helloStr    db  "--- Installing MCON Device Driver V"
+   511 000004C7 6C6C696E67204D434F- <1>
+   511 000004D0 4E2044657669636520- <1>
+   511 000004D9 4472697665722056    <1>
+   512 000004E1 302E30              <1>             db  majVers+"0",".",minVers/10+"0"
+   513 000004E4 32202D2D2D0A0D24    <1>             db (minVers-minVers/10*10)+"0", " ---", 10,13,"$"
+   513          ------------------  <1>  info: assembly required 1+2+2 passes
 
