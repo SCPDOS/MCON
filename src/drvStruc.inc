@@ -34,8 +34,6 @@ endstruc
     drvREMMEDCHECK  equ 15
     drvOUTTILBUSY   equ 16  ;Not implemented
     drvIOCTL        equ 19
-    drvStopCon      equ 20  ; NEW MULTITASKING 
-    drvRestartCon   equ 21  ; NEW MULTITASKING
     drvGETDRVMAP    equ 23
     drvSETDRVMAP    equ 24
     

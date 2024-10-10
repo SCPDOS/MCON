@@ -15,7 +15,7 @@ strategy:
     mov word [r8 + drvReqHdr.status], 0    ;Ensure status clear (should be!)
     movzx eax, byte [r8 + drvReqHdr.cmdcde]
     cmp eax, funcTblE   
-    jae short unkExit       ;If cmdcde is past the end of the table, error!
+    jae short unkCmd       ;If cmdcde is past the end of the table, error!
     lea rbx, funcTbl        ;Else get pointer to function
     movzx edx, word [rbx + 2*rax]   
     add rbx, rdx
@@ -34,7 +34,7 @@ exit:
 noOp:
     return
 
-unkExit:
+unkCmd:
     mov al, drvBadCmd
 errorExit:
 ;Jump to with al=Standard Error code
@@ -46,57 +46,94 @@ read:    ;Read Chars
     mov al, 05h ;Bad request structure length?
     cmp byte [r8 + drvReqHdr.hdrlen], ioReqPkt_size
     jne errorExit
-
+    movzx edx, byte [r8 + ioReqPkt.strtsc]  ;Get the screen number
+    cmp edx, maxScr
+    jbe .okScrnNum
+    mov eax, drvReadFault
+    jmp short errorExit
+.okScrnNum:
     mov rdi, qword [r8 + ioReqPkt.bufptr]  ;Point rdi to caller buffer
     xor ecx, ecx    ;Zero the char counter
-.cre1:
+.readLp:
+    cmp dl, byte [bCurScr]
+    je .getch   ;If the current screen is not the one requesting, freeze!
+    call getSIB ;Get the ptr to the SIB for the screen number in dl.
+    call procBlock  ;Lock using this SIB ptr as the identifier.
+    jmp short .readLp
+.getch:
     cmp ecx, dword [r8 + ioReqPkt.tfrlen]
-    je .cre2
+    je .exit
     cmp byte [bConBuf], 0   ;Does the buffer contain a zero?
-    jnz .cre3   ;No, get the buffer value
-    xor eax, eax
-    int 36h
+    jnz .getScCde   ;No, get the buffer value
+
+;Do a simulated 36h/00h call!
+    push rbx
+    push rdx
+    xor ebx, ebx
+    mov eax, ebx    ;Set ah = 0
+    mov rdx, rsp
+    mov bx, ss
+    push rdx
+    push rbx
+    pushfq
+    call keybHdlr.readChar
+    pop rbx
+    pop rbx
+
+    ;xor eax, eax
+    ;int 36h
     cmp ax, 7200h   ;CTRL + PrnScr? 
-    jne .cre11
+    jne .savChr
     mov al, 10h     ;Store ^P in al!
-.cre11:
+.savChr:
     stosb
     test al, al ;Was the ascii code stored 0?
-    jnz .cre12  ;No, skip storing scancode in buffer
+    jnz .savScCde  ;No, skip storing scancode in buffer
     mov byte [bConBuf], ah  ;Save scancode
-.cre12:
+.savScCde:
     inc ecx ;Inc chars stored in buffer
-    jmp short .cre1
-.cre2:
+    jmp short .readLp
+.exit:
     mov dword [r8 + ioReqPkt.tfrlen], ecx  ;Move num of transferred chars
     return
-.cre3:
+.getScCde:
     mov al, byte [bConBuf]  ;Get the buffer value
     mov byte [bConBuf], 0   ;Reset the buffer value
-    jmp short .cre11
+    jmp short .savChr
 
 ndRead:  ;Non destructive read chars
     mov al, 05h ;Bad request structure length?
     cmp byte [r8 + drvReqHdr.hdrlen], ndInNoWaitPkt_size
     jne errorExit
-    cmp byte [bConBuf], 0
-    jnz .cnr2
-    mov ah, 01h     ;Get key if exists
+    movzx edx, byte [r8 + ioReqPkt.strtsc]  ;Get the screen number
+    cmp edx, maxScr
+    jbe .okScrnNum
+    mov eax, drvReadFault
+    jmp errorExit
+.okScrnNum:
+    cmp dl, byte [bCurScr]  ;If not current screen, no char available!
+    jne .noChar
+    mov al, byte [bConBuf]
+    test al, al ;If this is not 0, there is a char in the buffer!
+    jnz .charFnd
+    mov ah, 01h         ;Get BIOS key existance status
     int 36h
-    jz .cnr1        ;If zero clear => no key, go forwards
-    ;Keystroke available
+    jz .noChar          ;If zero clear => no key in buffer
+    ;Else, Keystroke available
+    test ax, ax         ;If this is null, pull from the buffer
+    jnz .notNul         
+    int 36h             ;Calls blocking getch. Pulls the null.
+    jmp short ndRead    ;Now go again...
+.notNul:
     cmp ax, 7200h   ;CTRL + PrnScr?
-    jne .cnr0
+    jne .charFnd
     mov al, 10h     ;Report ^P
-.cnr0:
+.charFnd:
     mov byte [r8 + ndInNoWaitPkt.retbyt], al   ;Move char in al
     return
-.cnr1: ;No keystroke available
+.noChar: ;No keystroke available
     mov word [r8 + ndInNoWaitPkt.status], drvBsyStatus   ;Set busy bit
     return
-.cnr2:
-    mov al, byte [bConBuf]  ;Copy scancode but dont reset it
-    jmp short .cnr0   ;Keystroke is available clearly
 
 inStatus:         ;Get Input Status
     mov al, 05h ;Bad request structure length?
@@ -108,12 +145,24 @@ flushInBuf:   ;Flush Input Buffers
     mov al, 05h ;Bad request structure length?
     cmp byte [r8 + drvReqHdr.hdrlen], statusReqPkt_size
     jne errorExit
+    movzx edx, byte [r8 + ioReqPkt.strtsc]  ;Get the screen number
+    cmp edx, maxScr
+    jbe .okScrnNum
+    mov eax, drvReadFault
+    jmp errorExit
+.okScrnNum:
+    cmp dl, byte [bCurScr]
+    je .cleanBuf   ;If the current screen is not the one requesting, freeze!
+    call getSIB ;Get the ptr to the SIB for the screen number in dl.
+    call procBlock  ;Lock using this SIB ptr as the identifier.
+    jmp short .okScrnNum
+.cleanBuf:
     mov byte [bConBuf], 0   ;Clear buffer
 .cfib0:
-    mov ah, 01      ;Get buffer status
+    mov eax, 0100h  ;Get buffer status
     int 36h
     retz            ;If zero clear => no more keys to read
-    xor ah, ah
+    xor eax, eax
     int 36h ;Read key to flush from buffer
     jmp short .cfib0
 
@@ -121,80 +170,188 @@ write:   ;Write Chars
     mov al, 05h ;Bad request structure length?
     cmp byte [r8 + drvReqHdr.hdrlen], ioReqPkt_size
     jne errorExit
-
+    cmp dword [r8 + ioReqPkt.tfrlen], 0
+    je .exit
+    movzx edx, byte [r8 + ioReqPkt.strtsc]  ;Get the screen number
+    cmp edx, maxScr
+    jbe .okScrnNum
+    mov eax, drvWriteFault
+    jmp errorExit
+.okScrnNum:
     mov rsi, qword [r8 + ioReqPkt.bufptr] ;Point rsi to caller buffer 
     xor ecx, ecx    ;Zero the char counter
-.cw1: 
-    cmp ecx, dword [r8 + ioReqPkt.tfrlen]
-    je .cw2
+.writeLp:
+    cmp dl, byte [bCurScr]
+    je .chkScrn ;If the current screen is not the one requesting, freeze!
+    call getSIB ;Get the ptr to the SIB for the screen number in dl.
+.block:
+    call procBlock  ;Lock using this SIB ptr as the identifier.
+    jmp short .writeLp
+.chkScrn:   ;Check if the screen is frozen!
+    mov rbx, qword [pCurSib]
+    test byte [rbx + sib.bFrozenFlg], -1
+    jnz .block  ;Cant output if this flag is 0! Block on the SIB ptr.
+    test byte [bSavScr], -1 ;If set, we are in the middle of a save!
+    jz .outch
+    lea rbx, bSavScr    ;Block on the bSavScr byte
+    jmp short .block
+.outch: 
     lodsb   ;Get char into al, and inc rsi
-    int 29h ;Fast print char
+    call outch ;Fast print char
     inc ecx
-    jmp short .cw1 ;keep printing until all chars printed
-.cw2:
+    cmp ecx, dword [r8 + ioReqPkt.tfrlen]
+    jne .writeLp  ;keep printing until all chars printed
+.exit:
     mov dword [r8 + ioReqPkt.tfrlen], ecx  ;Move num of transferred chars
     return
-; -------------------- NEW FUNCTIONS -------------------- 
-genIOCTL:
-;Only one function, MScrCap. Declares the presence of a multitasker
-; to the driver!
-;Do all checks to ensure not an accidental call.
-    mov rdx, qword [r8 + ioctlReqPkt.ctlptr]
-    cmp ch, 03h     ;Sent to the CON? (Formally, SCR$)?
-    jne .exitBad
-    cmp cl, 40h     ;Get Multitasking Screen Capacities/init multitaskting?
-    je .iosc_init
-    cmp cl, 41h     ;Locate SIB
-    je .iosc_ls
-    cmp cl, 42h     ;Save Segment
-    je .iosc_ss
-    cmp cl, 43h     ;Restore Segment
-    je .iosc_rs
-    cmp cl, 44h     ;Enable IO
-    je .iosc_ei
-    cmp cl, 45h     ;Initialise Screen
-    je .iosc_is    
-    cmp cl, 46h     ;Deactivate Multitasking capabilities
-    je .iosc_deinst
-.exitBad:
-    mov word [r8 + drvReqHdr.status], drvErrStatus | drvBadCmd
-    stc
+outch:
+;Prints the char passed in al, with 
+    push rax
+    push rbx
+    mov ah, 0Eh
+    int 30h
+    pop rbx
+    pop rax
     return
-.iosc_deinst:
-;Reset the internal vars to set CON back to single tasking mode!
-    cli
-    mov rdx, qword [pOldKbdIntr]
-    mov eax, 0F1h
-    call installInterrupt
-    mov rdx, qword [pOldKbdHdlr]
-    mov eax, 036h
-    call installInterrupt
-    lea rax, noOp
-    mov qword [pDevHlp], rax    ;Restore the do nothing function!
-    sti
+; -------------------- NEW IOCTL FUNCTIONS -------------------- 
+ioctl:
+    cmp ch, 03h     ;Is this a CON IOCTL request?
+    jne unkCmd
+    mov rsi, qword [r8 + ioctlReqPkt.rsival]
+    cmp cl, 40h
+    jb unkCmd
+    cmp cl, 49h
+    jae unkCmd
+    movzx ecx, cl
+    sub ecx, 40h     ;Get table offset
+    lea rbx, ioctlTbl
+    mov rcx, qword [rbx + 2*rcx]    ;Get the offset from ioctlTbl
+    add rbx, rcx    ;Add to the table base address
+    jmp rbx ;Jump to the ptr in rbx and return to the main dispatcher!
+
+;||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+;||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+; NOTE FOR FUTURE! WE WILL NEED TO SAVE SOME INFORMATION IN THE DATA AREA |
+; EVEN IF USING BIOS SINCE WE NEED TO ALLOW ALL SCREENS TO HAVE SEPARATE  |
+; CURSOR SHAPES! AS THINGS STAND, ALL SCREENS SHARE THE SAME CURSOR SHAPE.|
+;||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+;||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
+
+ioctl_ls:
+;Locate SIB. 
+;By locating the SIB, we are selecting the screen!
+    cmp rsi, maxScr 
+    ja badSIBNum
+    mov edx, esi    ;Get the screen number in al
+    cmp byte [bCurScr], dl
+    je .curScr
+    mov byte [bCurScr], dl
+    call getSIB     ;Get sib ptr in rbx for screen number in dl.
+    mov qword [pCurSib], rbx
+    jmp short .exit
+.curScr:
+;Here we get a pointer to the segment itself, not just the SIB
+    mov byte [bSavScr], -1
+    xor eax, eax    ;Segment to get (Segment 0, only segment!)
+    call getSibSeg  ;Get rbx -> SIB, rdi -> Segment     
+    xor eax, eax
+    mov word [rdi + sibSeg.wSegSize], ax    ;We don't need a segment!
+.exit:
+    mov qword [r8 + ioctlReqPkt.ctlptr], rbx    ;Return SIB ptr here!
+    mov qword [r8 + ioctlReqPkt.rsival], 0  ;Indicate success!
     return
-.iosc_ls:
-;Locate SIB
-.iosc_ss:
-;Save Segment
-.iosc_rs:
-;Restore Segment
-.iosc_ei:
+
+ioctl_ss:
+;Save Segment of current SIB.
+;Input: rsi(sil) = ZX segment number to operate on into current SIB.
+    cmp rsi, maxSibSeg  ;Is this equal to 1?
+    ja badSIBNum
+;Since we are saving NO data, we simply return success!
+    mov qword [r8 + ioctlReqPkt.rsival], 0  ;Indicate success!
+    return
+
+ioctl_rs:
+;Restore Segment (Actually, set segment data!)
+;Input: rsi(sil) = ZX segment number to operate on into current SIB.
+;
+;We don't per-se restore data from the SIB instead getting BIOS to do
+; the screen swap for us. We change the screen number to the current 
+; screen number. 
+;If we send a SIB segment number of 0, we are resetting the screen.
+;Else, we are simply swapping to the screen.
+    cmp rsi, maxSibSeg  ;Is this equal to 1?
+    ja badSIBNum
+
+;Start by swapping the screen to the SIB number!
+    mov al, byte [bCurScr]    ;Move the screen number into al
+    mov ah, 05h     ;Set active page to al 
+    int 30h         ;Swap active page on the VGA!
+
+    test esi, esi   ;If Segment 0, reset the screen totally!
+    jnz .exit       ;Else we just wanted to swap to this screen (segment bzw.)
+;Here we reset the screen!
+    call resetScreen
+.exit:
+    mov qword [r8 + ioctlReqPkt.rsival], 0  ;Indicate success!
+    return
+
+ioctl_ei:
 ;Renable IO
-.iosc_is:
-;Initialise screen
+;Input: rsi(sil) = Zero extended screen number to operate on.
+    mov byte [bSavScr], 0   ;We are done saving the screen!
+    lea rbx, bSavScr    ;Thaw threads frozen during screen save!
+    call procRun
+    mov rbx, qword [pCurSib]    ;Thaw threads frozen while CurSib not current
     return
-.iosc_init:
+
+ioctl_is:
+;Initialise screen
+;Input: rsi(sil) = Zero extended screen number to operate on.
+    cmp rsi, maxScr 
+    ja badSIBNum
+    mov edx, esi
+    mov byte [bCurScr], dl
+    call getSIB ;Get ptr to this sib in rdi
+    mov qword [pCurSib], rdi
+    mov byte [rdi + sib.bFrozenFlg], 0  ;Screen not frozen!
+;Reset the screen now
+    call resetScreen
+    mov qword [r8 + ioctlReqPkt.rsival], 0  ;Indicate success!
+    return
+
+ioctl_strt:
+;Start (continue) screen output
+;Input: rsi(sil) = Zero extended screen number to operate on.
+    mov rbx, qword [pCurSib]
+    test byte [rbx + sib.bFrozenFlg], -1 ;Set the freeze flag in SIB
+    retz    ;If the current screen is already thawed, just return!
+    mov byte [rbx + sib.bFrozenFlg], 0  ;Thaw this SIB now
+    call procRun    ;And thaw any threads blocked on this SIB!
+    return
+
+ioctl_stop:
+;Stop (freeze) current screen output
+;Input: rsi(sil) = Zero extended screen number to operate on.
+    mov rbx, qword [pCurSib]
+    mov byte [rbx + sib.bFrozenFlg], -1 ;Set the freeze flag in SIB
+    return
+
+ioctl_init:
+;Multitasking initialisation function. Passes a datapkt ptr
+; in ctlptr field.
+    test byte [bInMulti], -1 ;Have we already run this function?
+    je unkCmd
+    mov rdx, qword [r8 + ioctlReqPkt.ctlptr]    ;Get pktptr
     cmp word [rdx + mScrCap.wVer], 0100h
-    jne .exitBad
+    jne unkCmd
     cmp word [rdx + mScrCap.wLen], mScrCap_size
-    jne .exitBad
+    jne unkCmd
 ;Here we have verified we are ok! Proceed.
-;This IOCTL is equivalent to in MTDOS the CON reporting caps during driver init.
+    mov byte [bInMulti], -1     ;Now we are entering MT! Set the lock!
+
+;This IOCTL is equivalent to how in MTDOS, CON reports caps during drvinit.
     mov byte [rdx + mScrCap.bScrNum], (maxScr + 1)
-    lea rax, mConHlp
-    xchg rax, qword [rdx + mScrCap.pDevHlp] ;For now, still provide this iface
-    ;mov rax, qword [rdx + mScrCap.pDevHlp]  ;Get the devHlp pointer
+    mov rax, qword [rdx + mScrCap.pDevHlp]  ;Get the devHlp pointer
     mov qword [pDevHlp], rax
 
 ;Now setup the pointer to the DOSMGR ScrIoOk byte
@@ -219,53 +376,91 @@ genIOCTL:
     lea rdx, keybHdlr
     mov eax, 036h
     call installInterrupt
-
     return
-;-------------------------------------------
-;       mConHlp dispatch and routines
-;-------------------------------------------
 
-mConHlp:
-;AL = 0: Get current screen number
-;AL = 1: Set new screen number
-;AL = 2: Reset the screen (CLS)
-;Al = 3: Cancel help pointer support
-    test eax, eax
-    jz getScreen
-    dec eax
-    jz swapScreen
-    dec eax
-    jz resetScreen
-    dec eax
-    jz genIOCTL.iosc_deinst ;Cancel help pointer support
-    stc
+ioctl_deinst:
+;Reset the internal vars to set CON back to single tasking mode!
+    cli
+    mov rdx, qword [pOldKbdIntr]
+    mov eax, 0F1h
+    call installInterrupt
+    mov rdx, qword [pOldKbdHdlr]
+    mov eax, 036h
+    call installInterrupt
+    lea rax, noOp
+    mov qword [pDevHlp], rax    ;Restore the do nothing function!
+    sti
+    mov byte [bInMulti], 0  ;Back out of Multitasking
     return
-getScreen:
+
+badSIBNum:
+;Jumped to to indicate a bad SIB or segment number!
+    mov qword [r8 + ioctlReqPkt.rsival], 1 
+    return
+
+procRun:
+;Input: rbx = qword identifier for the block tasks to unblock.
     push rbx
-    mov eax, 0F00h
-    int 30h
-    movzx eax, bh
+    push rdx
+    mov edx, DevHlp_ProcRun
+    call qword [pDevHlp]
+    pop rdx
     pop rbx
     return
-swapScreen:
-;If the screen number is above the max screen number we return error!
-;This routine is signalled by the task swapping routine.
-    movzx eax, bl ;Get the screen number
-    cmp eax, maxScr
-    ja .err
-    or eax, 0500h   
-    int 30h         ;Swap active page on the VGA!
+
+procBlock:
+;Input: rbx = qword identifier to block the thread on.
+    push rbx
+    push rcx
+    push rdx
+    mov edx, DevHlp_ProcBlock   ;ProcBlock, Sleep is not interruptable
+    xor ecx, ecx    ;No timeout!
+    cli         ;Stop Interrupts to prevent race conditions
+    call qword [pDevHlp]
+    pop rdx
+    pop rcx
+    pop rbx
     return
-.err:
-    stc
+
+;----------------------------------------------------------
+; Internal utility functions
+;----------------------------------------------------------
+
+getSIB:
+;Input: edx (zx from dl) = Screen number to get SIB for
+;Output: rbx -> SIB for that screen number
+    lea rbx, sibArray
+    test edx, edx
+    retz
+    push rax
+    push rcx
+    push rdx
+    mov eax, edx
+    mov ecx, screenSib_size ;Get screen Sib size
+    mul ecx ;eax <- eax*ecx
+    add rbx, rax
+    pop rdx
+    pop rcx
+    pop rax
     return
+
+getSibSeg:
+;Get the chosen segment from the current SIB
+;Input: eax (zx from ax) = Segment number to get
+;Output: rbx -> Current SIB
+;        rdi -> Chosen SIB segment
+    mov rbx, qword [pCurSib]
+    mov edi, sibSeg_size ;Get the size of the sibseg
+    mul edi     ;Get the segment offset in the segment block in eax
+    movzx edi, word [rbx + sib.wOffSeg] ;
+    add rdi, rax    ;Turn into an offset into the SIB
+    add rdi, rbx    ;Turn into a proper pointer
+    return
+
+
 resetScreen:
-;Resets the currently active screen!
-    mov ah, 0Bh  ; Set overscan to black (when Graphics becomes supported)
-    xor ebx, ebx
-    int 30h
-    mov ah, 0Fh ;Get screen mode
-    int 30h
+;Resets the current screen (Blanks).
+    movzx ebx, byte [bCurScr]    ;Move the screen number into ebx
     push rbx    ;Save the screen number on stack
     movzx edx, ah   ;Get number of columns in dl
     dec dl
@@ -275,19 +470,18 @@ resetScreen:
     mov bh, 7   ;Screen attributes
     mov ah, 6   ;Scroll
     int 30h
+
     xor edx, edx    ;Set cursor coordinates to top left of screen
     pop rbx     ;Get back the screen number
-    mov ah, 2
+    mov ah, 2   ;Set cursor position!
     int 30h
     return
-    
+;--------------------------------------------------------------
 ;------------- Driver built-in Interrupt Routines -------------
+;--------------------------------------------------------------
 fastOutput:         ;This CON driver supports Int 29h
 ;Called with char to transfer in al
-    push rax
-    mov ah, 0Eh
-    int 30h
-    pop rax
+    call outch
     iretq
 
 ctrlBreak:
@@ -388,9 +582,7 @@ keybHdlr:   ;Int 36h
     mov rbx, qword [pScrIoOk]
     test byte [rbx], -1
     jnz .okToRead
-    xor ecx, ecx
-    mov edx, DevHlp_ProcBlock  ;Proc block, non-interruptable
-    call qword [pDevHlp]    ;Use this var as identifier.
+    call procBlock
     jmp short .readChLp ;Check again!
 .okToRead:
 ;Now we simulate a call into 36h/AH=01h - Get keyboard buffer status
@@ -409,9 +601,7 @@ keybHdlr:   ;Int 36h
 ;If the char isn't there, we gotta pblock until it is.
     lea rbx, bKeybWait
     mov byte [rbx], -1
-    or ecx, ecx
-    mov edx, DevHlp_ProcBlock  ;Proc block, non-interruptable
-    call qword [pDevHlp]    ;Use this var as identifier.
+    call procBlock
     jmp short .readChLp ;Check again with CLI set!
 .doCharRead:
     pop rdx
