@@ -12,7 +12,7 @@ Output file:  ./bin/mcon.sys
 
 Vstart            Start             Stop              Length    Class     Name
                0                 0                 0  00000000  progbits  .text
-               0                 0               7C0  000007C0  progbits  cseg
+               0                 0               7C5  000007C5  progbits  cseg
 
 -- Sections (detailed) --------------------------------------------------------
 
@@ -30,7 +30,7 @@ vfollows:  not defined
 ---- Section cseg -------------------------------------------------------------
 
 class:     progbits
-length:                 7C0
+length:                 7C5
 start:                    0
 align:     not defined
 follows:   not defined
@@ -305,68 +305,68 @@ Real              Virtual           Name
              194               194  read.okScrnNum
              19A               19A  read.readLp
              1AE               1AE  read.getch
-             1DB               1DB  read.savChr
-             1E6               1E6  read.savScCde
-             1EA               1EA  read.exit
-             1EF               1EF  read.getScCde
-             1FE               1FE  ndRead
-             221               221  ndRead.okScrnNum
-             242               242  ndRead.notNul
-             24A               24A  ndRead.charFnd
-             24F               24F  ndRead.noChar
-             257               257  inStatus
-             264               264  flushInBuf
-             287               287  flushInBuf.okScrnNum
-             29B               29B  flushInBuf.cleanBuf
-             2A2               2A2  flushInBuf.cfib0
-             2AC               2AC  ..@93.a
-             2B2               2B2  write
-             2DF               2DF  write.okScrnNum
-             2E5               2E5  write.writeLp
-             2F2               2F2  write.block
-             2F9               2F9  write.chkScrn
-             317               317  write.outch
-             325               325  write.exit
-             32A               32A  outch
-             333               333  ioctl
-             36B               36B  ioctl_ls
-             396               396  ioctl_ls.curScr
-             3A9               3A9  ioctl_ls.exit
-             3B6               3B6  ioctl_ss
-             3CC               3CC  ioctl_rs
-             3EC               3EC  ioctl_rs.exit
-             3F5               3F5  ioctl_ei
-             410               410  ioctl_is
-             442               442  ioctl_strt
-             44F               44F  ..@103.a
-             458               458  ioctl_stop
-             463               463  ioctl_init
-             4FF               4FF  ioctl_deinst
-             539               539  badSIBNum
-             542               542  procRun
-             552               552  procBlock
-             567               567  getSIB
-             573               573  ..@113.a
-             586               586  getSibSeg
-             59F               59F  resetScreen
-             5C0               5C0  fastOutput
-             5C7               5C7  ctrlBreak
-             5F9               5F9  ctrlBreak.exit
-             5FD               5FD  keybIntr
-             654               654  keybIntr.keepChar
-             677               677  keybIntr.exit
-             67B               67B  keybHdlr
-             68A               68A  keybHdlr.readChar
-             68E               68E  keybHdlr.readChLp
-             6A1               6A1  keybHdlr.okToRead
-             6CF               6CF  keybHdlr.doCharRead
-             6D3               6D3  keybHdlr.goKbd
-             6D9               6D9  keybHdlr.lookahead
-             6EE               6EE  installInterrupt
-             718               718  getIntHdlr
-             722               722  init
-             744               744  init.ci0
-             750               750  init.ci1
-             786               786  skipMsg
-             792               792  helloStr
+             1E0               1E0  read.savChr
+             1EB               1EB  read.savScCde
+             1EF               1EF  read.exit
+             1F4               1F4  read.getScCde
+             203               203  ndRead
+             226               226  ndRead.okScrnNum
+             247               247  ndRead.notNul
+             24F               24F  ndRead.charFnd
+             254               254  ndRead.noChar
+             25C               25C  inStatus
+             269               269  flushInBuf
+             28C               28C  flushInBuf.okScrnNum
+             2A0               2A0  flushInBuf.cleanBuf
+             2A7               2A7  flushInBuf.cfib0
+             2B1               2B1  ..@93.a
+             2B7               2B7  write
+             2E4               2E4  write.okScrnNum
+             2EA               2EA  write.writeLp
+             2F7               2F7  write.block
+             2FE               2FE  write.chkScrn
+             31C               31C  write.outch
+             32A               32A  write.exit
+             32F               32F  outch
+             338               338  ioctl
+             370               370  ioctl_ls
+             39B               39B  ioctl_ls.curScr
+             3AE               3AE  ioctl_ls.exit
+             3BB               3BB  ioctl_ss
+             3D1               3D1  ioctl_rs
+             3F1               3F1  ioctl_rs.exit
+             3FA               3FA  ioctl_ei
+             415               415  ioctl_is
+             447               447  ioctl_strt
+             454               454  ..@103.a
+             45D               45D  ioctl_stop
+             468               468  ioctl_init
+             504               504  ioctl_deinst
+             53E               53E  badSIBNum
+             547               547  procRun
+             557               557  procBlock
+             56C               56C  getSIB
+             578               578  ..@113.a
+             58B               58B  getSibSeg
+             5A4               5A4  resetScreen
+             5C5               5C5  fastOutput
+             5CC               5CC  ctrlBreak
+             5FE               5FE  ctrlBreak.exit
+             602               602  keybIntr
+             659               659  keybIntr.keepChar
+             67C               67C  keybIntr.exit
+             680               680  keybHdlr
+             68F               68F  keybHdlr.readChar
+             693               693  keybHdlr.readChLp
+             6A6               6A6  keybHdlr.okToRead
+             6D4               6D4  keybHdlr.doCharRead
+             6D8               6D8  keybHdlr.goKbd
+             6DE               6DE  keybHdlr.lookahead
+             6F3               6F3  installInterrupt
+             71D               71D  getIntHdlr
+             727               727  init
+             749               749  init.ci0
+             755               755  init.ci1
+             78B               78B  skipMsg
+             797               797  helloStr
 
