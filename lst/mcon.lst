@@ -990,7 +990,7 @@
    417 0000057E BA09000000          <1>     mov edx, DevHlp_ProcBlock   ;ProcBlock, Sleep is not interruptable
    418 00000583 31C9                <1>     xor ecx, ecx    ;No timeout!
    419 00000585 FA                  <1>     cli         ;Stop Interrupts to prevent race conditions
-   420 00000586 FF15E3FAFFFF        <1>     call qword [pDevHlp]
+   420 00000586 FF15E3FAFFFF        <1>     call qword [pDevHlp]    ;Return with interrupts enabled
    421 0000058C 5A                  <1>     pop rdx
    422 0000058D 59                  <1>     pop rcx
    423 0000058E 5B                  <1>     pop rbx
@@ -1225,7 +1225,7 @@
    642 0000071B 488D1D3BF9FFFF      <1>     lea rbx, bKeybWait
    643 00000722 C603FF              <1>     mov byte [rbx], -1
    644 00000725 E851FEFFFF          <1>     call procBlock
-   645 0000072A EBBF                <1>     jmp short .readChLp ;Check again with CLI set!
+   645 0000072A EBBF                <1>     jmp short .readChLp
    646                              <1> .doCharRead:
    647 0000072C 5A                  <1>     pop rdx
    648 0000072D 59                  <1>     pop rcx

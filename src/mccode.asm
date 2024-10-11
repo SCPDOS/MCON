@@ -417,7 +417,7 @@ procBlock:
     mov edx, DevHlp_ProcBlock   ;ProcBlock, Sleep is not interruptable
     xor ecx, ecx    ;No timeout!
     cli         ;Stop Interrupts to prevent race conditions
-    call qword [pDevHlp]
+    call qword [pDevHlp]    ;Return with interrupts enabled
     pop rdx
     pop rcx
     pop rbx
@@ -642,7 +642,7 @@ keybHdlr:   ;Int 36h
     lea rbx, bKeybWait
     mov byte [rbx], -1
     call procBlock
-    jmp short .readChLp ;Check again with CLI set!
+    jmp short .readChLp
 .doCharRead:
     pop rdx
     pop rcx
