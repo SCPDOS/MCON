@@ -618,8 +618,8 @@
     72                              <1> 
     73                              <1>     ;xor eax, eax
     74                              <1>     ;int 36h
-    75 000001C6 6685C0              <1>     test ax, ax ;If we read a null, read again!
-    76 000001C9 74ED                <1>     jz .getch
+    75 000001C6 6685C0              <1>     test ax, ax ;If we read a null, read again! Go through screen check though!
+    76 000001C9 74D9                <1>     jz .readLp
     77 000001CB 663D0072            <1>     cmp ax, 7200h   ;CTRL + PrnScr? 
     78 000001CF 7502                <1>     jne .savChr
     79 000001D1 B010                <1>     mov al, 10h     ;Store ^P in al!

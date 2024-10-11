@@ -72,8 +72,8 @@ read:    ;Read Chars
 
     ;xor eax, eax
     ;int 36h
-    test ax, ax ;If we read a null, read again!
-    jz .getch
+    test ax, ax ;If we read a null, read again! Go through screen check though!
+    jz .readLp
     cmp ax, 7200h   ;CTRL + PrnScr? 
     jne .savChr
     mov al, 10h     ;Store ^P in al!
