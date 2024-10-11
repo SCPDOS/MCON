@@ -63,28 +63,12 @@ read:    ;Read Chars
     call procBlock  ;Lock using this SIB ptr as the identifier.
     jmp short .readLp
 .getch:
-    cli
+;    cli
     cmp byte [bConBuf], 0   ;Does the buffer contain a zero?
     jnz .getScCde   ;No, get the buffer value
 
 ;Do a simulated 36h/00h call!
-
-    mov rbx, rsp
-    push rbx
-    xor ebx, ebx
-    mov bx, ss
-    push rbx
-    pushfq
-    mov bx, cs
-    push rbx
-    xor eax, eax    ;AH = 0
-    call qword [pOldKbdHdlr]    ;Call BIOS Int 36h AH=00h (Safe to do so!)
-    ;BIOS will unlikely turn on interrupts long enough to cause a problem.
-;Don't do the below as this is the same as calling Int 36h directly:
-    ;call keybHdlr.readChar
-;Instead call the original BIOS routine since if are here we have successfully  
-; checked for each char that the request we are servicing is for the currently 
-; active screen.
+    call simulBIOSRead
 
     ;xor eax, eax
     ;int 36h
@@ -99,7 +83,7 @@ read:    ;Read Chars
     jnz .savScCde  ;No, skip storing scancode in buffer
     mov byte [bConBuf], ah  ;Save scancode
 .savScCde:
-    sti
+;    sti
     inc ecx ;Inc chars stored in buffer
     cmp ecx, dword [r8 + ioReqPkt.tfrlen]
     jne .readLp
@@ -126,37 +110,14 @@ ndRead:  ;Non destructive read chars
     mov al, byte [bConBuf]
     test al, al ;If this is not 0, there is a char in the buffer!
     jnz .charFnd
-
-    ;mov rbx, rsp
-    ;push rbx
-    ;xor ebx, ebx
-    ;mov bx, ss
-    ;push rbx
-    ;pushfq
-    ;mov bx, cs
-    ;push rbx
-    ;mov eax, 0100h  ;Lookahead
-    ;call qword [pOldKbdHdlr]
-    mov ah, 01h         ;Get BIOS key existance status
-    int 36h
-
+    call simulBIOSNDRead
     jz .noChar          ;If zero clear => no key in buffer
     ;Else, Keystroke available
     test ax, ax         ;If this is null, pull from the buffer
     jnz .notNul         
     cmp dl, byte [bCurScr]  ;If no longer on current screen, no char available!
     jne .noChar
-    ;mov rbx, rsp
-    ;push rbx
-    ;xor ebx, ebx
-    ;mov bx, ss
-    ;push rbx
-    ;pushfq
-    ;mov bx, cs
-    ;push rbx
-    ;xor eax, eax  ;Pull char from buffer
-    ;call qword [pOldKbdHdlr]
-    int 36h             ;Calls blocking getch. Pulls the null.
+    call simulBIOSRead
     jmp short ndRead    ;Now go again...
 .notNul:
     cmp ax, 7200h   ;CTRL + PrnScr?
@@ -193,39 +154,12 @@ flushInBuf:   ;Flush Input Buffers
     jmp short .okScrnNum
 .cleanBuf:
     mov byte [bConBuf], 0   ;Clear buffer
-
-    mov eax, 0100h  ;Get buffer status
-    int 36h
+    call simulBIOSNDRead
     retz            ;If zero clear => no more keys to read
-    ;mov rbx, rsp
-    ;push rbx
-    ;xor ebx, ebx
-    ;mov bx, ss
-    ;push rbx
-    ;pushfq
-    ;mov bx, cs
-    ;push rbx
-    ;mov eax, 0100h  ;Lookahead
-    ;call qword [pOldKbdHdlr]    ;If ZF=ZE, no more chars!
-    ;retz
-
-    cmp dl, byte [bCurScr]
+    cmp dl, byte [bCurScr]  ;If screen has changed, block on SIB!
     jne .block
-    xor eax, eax
-    int 36h ;Read key to flush from buffer
-    
-    ;mov rbx, rsp
-    ;push rbx
-    ;xor ebx, ebx
-    ;mov bx, ss
-    ;push rbx
-    ;pushfq
-    ;mov bx, cs
-    ;push rbx
-    ;xor eax, eax  ;Pull char out
-    ;call qword [pOldKbdHdlr]
-
-    jmp short .okScrnNum    ;Check if screen number still ok!
+    call simulBIOSRead  ;Char pulled, check if screen number still ok!
+    jmp short .okScrnNum    
 
 write:   ;Write Chars
     mov al, 05h ;Bad request structure length?
@@ -483,6 +417,45 @@ procBlock:
     pop rbx
     return
 
+simulBIOSRead:
+;Simulates a BIOS call of 36h/00h bypassing any hooks.
+    push rax
+    push rbx
+    xor eax, eax
+    mov ax, ss
+    mov rbx, rsp
+    push rax    ;Push SS
+    push rbx    ;Push RSP
+    pushfq      ;Push RFLAGS
+    mov ax, cs
+    push rax    ;Push CS
+    xor eax, eax  ;Get the keyb status
+    jmp short simulBIOS
+simulBIOSNDRead:
+;Simulates a BIOS call of 36h/01h bypassing any hooks.
+    push rax
+    push rbx
+    xor eax, eax
+    mov ax, ss
+    mov rbx, rsp
+    push rax    ;Push SS
+    push rbx    ;Push RSP
+    pushfq      ;Push RFLAGS
+    mov ax, cs
+    push rax    ;Push CS
+    mov eax, 0100h  ;Get the keyb status
+simulBIOS:
+;Calls the interrupt handler directly, bypassing any hooks.
+;Prevents trapping and redirecting from hurting the integrity of the system.
+;Follows the advice of the documentation. Lets see how well it works...
+;We check we should be getting the characters just before we start our 
+; read/ndread. After each call, if we are to make another call to the BIOS
+; we check again to ensure that the screen state hasn't changed.
+    ;call keybHdlr   ;Call int hdlr, if active add a cli to start of keybHdlr.
+    call qword [pOldKbdHdlr]   ;Call original int hdlr
+    pop rbx
+    pop rax
+    return
 ;----------------------------------------------------------
 ; Internal utility functions
 ;----------------------------------------------------------
