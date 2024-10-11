@@ -63,13 +63,19 @@ read:    ;Read Chars
     call procBlock  ;Lock using this SIB ptr as the identifier.
     jmp short .readLp
 .getch:
-;    cli
+    cli
     cmp byte [bConBuf], 0   ;Does the buffer contain a zero?
     jnz .getScCde   ;No, get the buffer value
-
+.checkChar:
+    call simulBIOSNDRead    ;ZF=NZ means we have a char to read
+    jnz .pullChar
+    lea rbx, bKeybWait  ;Else block on the no-chars semaphore!
+    mov byte [rbx], -1  ;Set semaphore on!
+    call procBlock      ;Block until free...    
+    jmp short .readLp   ;Now check we still have the screen!
+.pullChar: 
 ;Do a simulated 36h/00h call!
     call simulBIOSRead
-
     ;xor eax, eax
     ;int 36h
     test ax, ax ;If we read a null, read again! Go through screen check though!
@@ -83,7 +89,7 @@ read:    ;Read Chars
     jnz .savScCde  ;No, skip storing scancode in buffer
     mov byte [bConBuf], ah  ;Save scancode
 .savScCde:
-;    sti
+    sti
     inc ecx ;Inc chars stored in buffer
     cmp ecx, dword [r8 + ioReqPkt.tfrlen]
     jne .readLp
