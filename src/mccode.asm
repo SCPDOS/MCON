@@ -46,6 +46,8 @@ read:    ;Read Chars
     mov al, 05h ;Bad request structure length?
     cmp byte [r8 + drvReqHdr.hdrlen], ioReqPkt_size
     jne errorExit
+    cmp dword [r8 + ioReqPkt.tfrlen], 0
+    je .exit
     movzx edx, byte [r8 + ioReqPkt.strtsc]  ;Get the screen number
     cmp edx, maxScr
     jbe .okScrnNum
@@ -61,24 +63,28 @@ read:    ;Read Chars
     call procBlock  ;Lock using this SIB ptr as the identifier.
     jmp short .readLp
 .getch:
-    cmp ecx, dword [r8 + ioReqPkt.tfrlen]
-    je .exit
+    cli
     cmp byte [bConBuf], 0   ;Does the buffer contain a zero?
     jnz .getScCde   ;No, get the buffer value
 
 ;Do a simulated 36h/00h call!
+
+    mov rbx, rsp
     push rbx
-    push rdx
     xor ebx, ebx
-    mov eax, ebx    ;Set ah = 0
-    mov rdx, rsp
     mov bx, ss
-    push rdx
     push rbx
     pushfq
-    call keybHdlr.readChar
-    pop rbx
-    pop rbx
+    mov bx, cs
+    push rbx
+    xor eax, eax    ;AH = 0
+    call qword [pOldKbdHdlr]    ;Call BIOS Int 36h AH=00h (Safe to do so!)
+    ;BIOS will unlikely turn on interrupts long enough to cause a problem.
+;Don't do the below as this is the same as calling Int 36h directly:
+    ;call keybHdlr.readChar
+;Instead call the original BIOS routine since if are here we have successfully  
+; checked for each char that the request we are servicing is for the currently 
+; active screen.
 
     ;xor eax, eax
     ;int 36h
@@ -93,8 +99,10 @@ read:    ;Read Chars
     jnz .savScCde  ;No, skip storing scancode in buffer
     mov byte [bConBuf], ah  ;Save scancode
 .savScCde:
+    sti
     inc ecx ;Inc chars stored in buffer
-    jmp short .readLp
+    cmp ecx, dword [r8 + ioReqPkt.tfrlen]
+    jne .readLp
 .exit:
     mov dword [r8 + ioReqPkt.tfrlen], ecx  ;Move num of transferred chars
     return
@@ -118,12 +126,36 @@ ndRead:  ;Non destructive read chars
     mov al, byte [bConBuf]
     test al, al ;If this is not 0, there is a char in the buffer!
     jnz .charFnd
+
+    ;mov rbx, rsp
+    ;push rbx
+    ;xor ebx, ebx
+    ;mov bx, ss
+    ;push rbx
+    ;pushfq
+    ;mov bx, cs
+    ;push rbx
+    ;mov eax, 0100h  ;Lookahead
+    ;call qword [pOldKbdHdlr]
     mov ah, 01h         ;Get BIOS key existance status
     int 36h
+
     jz .noChar          ;If zero clear => no key in buffer
     ;Else, Keystroke available
     test ax, ax         ;If this is null, pull from the buffer
     jnz .notNul         
+    cmp dl, byte [bCurScr]  ;If no longer on current screen, no char available!
+    jne .noChar
+    ;mov rbx, rsp
+    ;push rbx
+    ;xor ebx, ebx
+    ;mov bx, ss
+    ;push rbx
+    ;pushfq
+    ;mov bx, cs
+    ;push rbx
+    ;xor eax, eax  ;Pull char from buffer
+    ;call qword [pOldKbdHdlr]
     int 36h             ;Calls blocking getch. Pulls the null.
     jmp short ndRead    ;Now go again...
 .notNul:
@@ -155,18 +187,45 @@ flushInBuf:   ;Flush Input Buffers
 .okScrnNum:
     cmp dl, byte [bCurScr]
     je .cleanBuf   ;If the current screen is not the one requesting, freeze!
+.block:
     call getSIB ;Get the ptr to the SIB for the screen number in dl.
     call procBlock  ;Lock using this SIB ptr as the identifier.
     jmp short .okScrnNum
 .cleanBuf:
     mov byte [bConBuf], 0   ;Clear buffer
-.cfib0:
+
     mov eax, 0100h  ;Get buffer status
     int 36h
     retz            ;If zero clear => no more keys to read
+    ;mov rbx, rsp
+    ;push rbx
+    ;xor ebx, ebx
+    ;mov bx, ss
+    ;push rbx
+    ;pushfq
+    ;mov bx, cs
+    ;push rbx
+    ;mov eax, 0100h  ;Lookahead
+    ;call qword [pOldKbdHdlr]    ;If ZF=ZE, no more chars!
+    ;retz
+
+    cmp dl, byte [bCurScr]
+    jne .block
     xor eax, eax
     int 36h ;Read key to flush from buffer
-    jmp short .cfib0
+    
+    ;mov rbx, rsp
+    ;push rbx
+    ;xor ebx, ebx
+    ;mov bx, ss
+    ;push rbx
+    ;pushfq
+    ;mov bx, cs
+    ;push rbx
+    ;xor eax, eax  ;Pull char out
+    ;call qword [pOldKbdHdlr]
+
+    jmp short .okScrnNum    ;Check if screen number still ok!
 
 write:   ;Write Chars
     mov al, 05h ;Bad request structure length?
@@ -618,7 +677,7 @@ keybHdlr:   ;Int 36h
     test byte [rbx], -1
     pop rbx
     jnz .goKbd  ;If we can, do it!
-    and byte [rsp + 2*8], ~1    ;Clear CF of flags
+    and byte [rsp + 2*8], ~40h    ;Clear ZF of flags
     iretq
 
 installInterrupt:
